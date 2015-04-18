@@ -752,7 +752,7 @@ public:
 			if (rec_level == par_level)
 				putToThread(r.extent, r.intent, r.j);
 			else
-				inclose2Impl(r.extent, r.intent, r.j + 1);
+				parInclose2Impl(r.extent, r.intent, r.j + 1, rec_level+1);
 			q.pop();
 		}
 	}
@@ -881,7 +881,7 @@ public:
 				putToThread(r.extent, r.intent, r.j, M);
 			}
 			else
-				inclose3Impl(r.extent, r.intent, r.j + 1, M);
+				parInclose3Impl(r.extent, r.intent, r.j + 1, M, rec_level+1);
 			q.pop();
 		}
 	}
