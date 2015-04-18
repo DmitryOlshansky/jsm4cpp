@@ -27,6 +27,7 @@ Authors: Dmitry Olshansky (c) 2015-
 #include <memory>
 #include <thread>
 #include <mutex>
+#include <chrono>
 
 using namespace std;
 
@@ -992,9 +993,9 @@ void start(Context& context, ALGO alg)
 
 int main(int argc, char* argv[])
 {
-	ios_base::sync_with_stdio(false);	
+	ios_base::sync_with_stdio(false);
 	string arg;
-	ALGO alg = NONE;	
+	ALGO alg = NONE;
 	ifstream in_file;
 	ofstream out_file;
 	size_t num_threads = 1;
@@ -1010,8 +1011,8 @@ int main(int argc, char* argv[])
 			if (alg == NONE){
 				cerr << "No such algorithm " << arg << endl;
 			}
-			if(verbose == 2)
-				cerr << "Using algorithm " << alg <<endl;
+			if (verbose == 2)
+				cerr << "Using algorithm " << alg << endl;
 			break;
 		case 'v':
 			verbose = atoi(argv[i] + 2);
@@ -1032,27 +1033,33 @@ int main(int argc, char* argv[])
 		cerr << "Algorithm not specified" << endl;
 		return 1;
 	}
-	Context context(verbose, num_threads, par_level);
-	if (argc > 0){
-		in_file.open(argv[0]);
-		if (!context.loadFIMI(in_file)){
+	chrono::duration<double> elapsed;
+	{
+		Context context(verbose, num_threads, par_level);
+		if (argc > 0){
+			in_file.open(argv[0]);
+			if (!context.loadFIMI(in_file)){
+				cerr << "Failed to load any data.\n";
+				return 1;
+			}
+		}
+		else if (!context.loadFIMI(cin)){
 			cerr << "Failed to load any data.\n";
 			return 1;
 		}
+		if (argc > 1){
+			out_file.open(argv[1]);
+			context.setOutput(out_file);
+		}
+		if (verbose == 3){
+			cerr << " Context:" << endl;
+			context.printContext();
+		}
+		auto beg = chrono::high_resolution_clock::now();
+		start(context, alg);
+		auto end = chrono::high_resolution_clock::now();
+		elapsed = end - beg;
 	}
-	else if (!context.loadFIMI(cin)){
-		cerr << "Failed to load any data.\n";
-		return 1;
-	}
-	if (argc > 1){
-		out_file.open(argv[1]);
-		context.setOutput(out_file);
-	}
-	if (verbose == 3){
-		cerr << " Context:" << endl;
-		context.printContext();
-	}
-	start(context, alg);
-	
+	cerr << "Time: " << elapsed.count() << endl;
 	return 0;
 }
