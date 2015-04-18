@@ -14,6 +14,8 @@ attributes of concept as integers \n
 Authors: Dmitry Olshansky (c) 2015-
 */
 #include <assert.h>
+#include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -58,17 +60,19 @@ public:
 	// Fixed sized stack allocator for BitSet.
 	// Frees all memory at once on scope exit.
 	struct Pool{
-		Pool(size_t n) : ptr((size_t*)malloc(n*words*BYTES)), cur(0){}
+		Pool(size_t n) : ptr((size_t*)malloc(n*words*BYTES)), cur(0), size(n*words){}
 		BitVec newEmpty(){
 			BitVec bv(ptr + cur);
 			bv.clearAll();
 			cur += words;
+			assert(cur <= size);
 			return bv;
 		}
 		BitVec newFull(){
 			BitVec bv(ptr + cur);
 			bv.setAll();
 			cur += words;
+			assert(cur <= size);
 			return bv;
 		}
 		~Pool(){
@@ -76,7 +80,7 @@ public:
 		}
 	private:
 		size_t* ptr;
-		size_t cur;
+		size_t cur, size;
 	};
 	static void setSize(size_t total){
 		length = total;
@@ -85,7 +89,7 @@ public:
 
 	BitVec():data(nullptr){}
 	explicit BitVec(size_t* ptr) : data(ptr){}
-	BitVec& operator=(BitVec& v){
+	BitVec& operator=(const BitVec& v){
 		data = v.data;
 		return *this;
 	}
@@ -221,10 +225,10 @@ using IntSet = BitVec<1>;
 
 
 // Sadly fixed BitVectors need separate statics declaration per instance
-size_t BitVec<0>::words;
-size_t BitVec<0>::length;
-size_t BitVec<1>::words;
-size_t BitVec<1>::length;
+template<> size_t BitVec<0>::words = 0;
+template<> size_t BitVec<0>::length = 0;
+template<> size_t BitVec<1>::words = 0;
+template<> size_t BitVec<1>::length = 0;
 
 // A per thread queue that contains flattened copy of required data
 struct BlockQueue{
@@ -363,7 +367,7 @@ private:
 
 	void putToThread(ExtSet extent, IntSet intent, size_t j, IntSet* M){
 		static int tid = 0;
-		threads[tid].queue.put(extent, intent, j , M, attributes);
+		threads[tid].queue.put(extent, intent, j, M, attributes);
 		tid += 1;
 		if (tid == num_threads)
 			tid = 0;
@@ -534,11 +538,13 @@ public:
 		if (y == attributes)
 			return;
 		queue<Rec> q;
-		IntSet* M = N+attributes;
+		char buf[2048];
+		IntSet* M = N + attributes;
 		IntSet::Pool ints(attributes - y);
 		ExtSet::Pool exts(attributes - y);
 		ExtSet C;
 		IntSet D;
+		// note that M[0..y] may point to stale sets which however doesn't matter
 		for (size_t j = y; j < attributes; j++) {
 			M[j] = N[j];
 			if (!B.has(j)){
@@ -556,6 +562,7 @@ public:
 				}
 			}
 		}
+		
 		while (!q.empty()){
 			Rec r = q.front();
 			fcboImpl(r.extent, r.intent, r.j+1, M);
@@ -593,12 +600,12 @@ public:
 		while (!q.empty()){
 			Rec r = q.front();
 			if (rec_level == par_level){
-				cerr << "*" << endl;
+				memset(M, 0, sizeof(IntSet) * y); // clear first y IntSets that are possibly stale 
 				putToThread(r.extent, r.intent, r.j + 1, M);
-				cerr << "!" << endl;
 			}
-			else
+			else{
 				parFcboImpl(r.extent, r.intent, r.j + 1, M, rec_level+1);
+			}
 			q.pop();
 		}
 	}
@@ -622,6 +629,7 @@ public:
 		// start of multi-threaded part
 		
 		vector<thread> trds(num_threads);
+		
 		for (size_t t = 0; t < num_threads; t++){
 			trds[t] = thread([t, this]{
 				size_t j;
@@ -752,11 +760,6 @@ public:
 
 };
 
-// only variables from context required for algorithms execution
-struct ExecContext{
-
-};
-
 enum ALGO {
 	NONE,
 	CBO,
@@ -848,7 +851,8 @@ int main(int argc, char* argv[])
 	argv = argv + i;
 	argc = argc - i;
 	if (alg == NONE){
-		cerr << "Algorithm not specified" << arg;
+		cerr << "Algorithm not specified" << endl;
+		return 1;
 	}
 	Context context(verbose, num_threads, par_level);
 	if (argc > 0){
