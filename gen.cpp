@@ -302,7 +302,7 @@ mutex output_mtx;
 
 class Context {
 private:
-	enum { QUEUE_SIZE = 16 * 1024, MAX_DECIMAL = 12, OUTPUT_BUF_SIZE = 100 * MAX_DECIMAL };
+	enum { QUEUE_SIZE = 16 * 1024 };
 	IntSet* rows; // attributes of objects
 	size_t attributes;
 	size_t objects;
@@ -330,10 +330,11 @@ private:
 	ThreadBlock* threads;
 
 	struct Stats{
+		int total;
 		int closures; // closures / partial closures computed
 		int fail_canon; // canonical test failures
 		int fail_fast; // fast canonical test failures
-		Stats(): closures(0), fail_canon(0), fail_fast(0){}
+		Stats(): total(0), closures(0), fail_canon(0), fail_fast(0){}
 	};
 	Stats stats;
 
@@ -351,17 +352,22 @@ private:
 
 	
 	void printAttributes(IntSet& set, ostream& sink = cerr){
-		lock_guard<mutex> lock(output_mtx);
-		set.each([&](size_t i){
-			sink << attributesNums[i] << ' ';
-		});
-		sink << '\n';
+		if (verbose >= 1){
+			lock_guard<mutex> lock(output_mtx);
+			set.each([&](size_t i){
+				sink << attributesNums[i] << ' ';
+			});
+			sink << '\n';
+		}
+		stats.total++;
 	}
 
 	void printStats(){
 		if (verbose >= 2){
-			cerr << "Closure\tCanonical\tFast" << endl;
-			cerr << stats.closures << '\t' << stats.fail_canon << '\t' << stats.fail_fast << endl;
+			lock_guard<mutex> lock(output_mtx);
+			cerr << "Total\tClosure\tCanonical\tFast\n"
+			     << stats.total << '\t'<< stats.closures 
+				 << '\t' << stats.fail_canon << '\t' << stats.fail_fast << endl;
 		}
 	}
 
@@ -382,7 +388,9 @@ private:
 public:
 	Context(size_t verbose_, size_t threads_, size_t par_level_) 
 		:rows(), attributes(0), objects(0), out(&cout), verbose(verbose_), num_threads(threads_), par_level(par_level_){}
-
+	~Context(){
+		printStats();
+	}
 	void setOutput(ostream& sink){
 		out = &sink;
 	}
@@ -475,6 +483,7 @@ public:
 				D.intersect(rows[i]);
 			}
 		});
+		stats.closures++;
 	}
 
 	// Produce extent having attribute y from A
@@ -500,6 +509,7 @@ public:
 				D.intersect(rows[i], y);
 			}
 		});
+		stats.closures++;
 	}
 	
 	// an interation of Close by One algorithm
@@ -515,6 +525,9 @@ public:
 				closeConcept(A, j, C, D);
 				if (B.equal(D, j)){ // equal up to <j
 					cboImpl(C, D, j + 1);
+				}
+				else{
+					stats.fail_canon++;
 				}
 				C.clearAll();
 				D.setAll();
@@ -538,7 +551,6 @@ public:
 		if (y == attributes)
 			return;
 		queue<Rec> q;
-		char buf[2048];
 		IntSet* M = N + attributes;
 		IntSet::Pool ints(attributes - y);
 		ExtSet::Pool exts(attributes - y);
@@ -557,9 +569,12 @@ public:
 						q.emplace(C, D, j);
 					}
 					else {
+						stats.fail_canon++;
 						M[j] = D;
 					}
 				}
+				else
+					stats.fail_fast++;
 			}
 		}
 		
@@ -593,8 +608,11 @@ public:
 					}
 					else {
 						M[j] = D;
+						stats.fail_canon++;
 					}
 				}
+				else
+					stats.fail_fast++;
 			}
 		}
 		while (!q.empty()){
@@ -684,7 +702,8 @@ public:
 					if (B.equal(D, j)){ // equal up to <j
 						q.emplace(C, D, j);
 					}
-
+					else
+						stats.fail_canon++;
 				}
 			}
 		}
@@ -698,12 +717,78 @@ public:
 		}
 	}
 
+	void parInclose2Impl(ExtSet A, IntSet B, size_t y, size_t rec_level){
+		if (y == attributes){
+			output(A, B);
+			return;
+		}
+		queue<Rec> q;
+		IntSet::Pool ints(attributes - y);
+		ExtSet::Pool exts(attributes - y);
+		ExtSet C;
+		IntSet D;
+		for (size_t j = y; j < attributes; j++) {
+			if (!B.has(j)){
+				C = exts.newEmpty();
+				if (filterExtent(A, j, C)){ // if A == C
+					B.add(j);
+				}
+				else{
+					D = ints.newFull();
+					partialClosure(C, j, D);
+					if (B.equal(D, j)){ // equal up to <j
+						q.emplace(C, D, j);
+					}
+					else
+						stats.fail_canon++;
+				}
+			}
+		}
+		output(A, B);
+		while (!q.empty()){
+			Rec r = q.front();
+			r.intent.copy(B);
+			r.intent.add(r.j);
+			if (rec_level == par_level)
+				putToThread(r.extent, r.intent, r.j);
+			else
+				inclose2Impl(r.extent, r.intent, r.j + 1);
+			q.pop();
+		}
+	}
+
 	void inclose2(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
 		inclose2Impl(X, Y, 0);
+	}
+
+	void parInclose2(){
+		threads = new ThreadBlock[num_threads];
+		ExtSet::Pool exts(1);
+		IntSet::Pool ints(1);
+		ExtSet X = exts.newFull();
+		IntSet Y = ints.newEmpty();
+		parInclose2Impl(X, Y, 0, 0);
+		// start of multi-threaded part
+		vector<thread> trds(num_threads);
+
+		for (size_t t = 0; t < num_threads; t++){
+			trds[t] = thread([t, this]{
+				size_t j;
+				Context c = *this; // use separate context to count operations
+				memset(&c.stats, 0, sizeof(c.stats));
+				while (!threads[t].queue.empty()){
+					threads[t].queue.fetch(threads[t].A, threads[t].B, j);
+					c.inclose2Impl(threads[t].A, threads[t].B, j + 1);
+				}
+			});
+		}
+		for (auto & t : trds){
+			t.join();
+		}
 	}
 
 	void inclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N){
@@ -733,9 +818,12 @@ public:
 						}
 						else {
 							M[j] = D;
+							stats.fail_canon++;
 						}
 					}
 				}
+				else
+					stats.fail_fast++;
 			}
 		}
 		output(A, B);
@@ -745,6 +833,92 @@ public:
 			r.intent.add(r.j);
 			inclose3Impl(r.extent, r.intent, r.j + 1, M);
 			q.pop();
+		}
+	}
+
+	void parInclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
+		if (y == attributes){
+			output(A, B);
+			return;
+		}
+		queue<Rec> q;
+		IntSet::Pool ints(attributes - y);
+		ExtSet::Pool exts(attributes - y);
+		ExtSet C;
+		IntSet D;
+		IntSet* M = N + attributes;
+		for (size_t j = y; j < attributes; j++) {
+			M[j] = N[j];
+			if (!B.has(j)){
+				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
+					C = exts.newEmpty();
+					if (filterExtent(A, j, C)){ // if A == C
+						B.add(j);
+					}
+					else{
+						D = ints.newEmpty();
+						partialClosure(C, j, D);
+						if (B.equal(D, j)){ // equal up to <j
+							q.emplace(C, D, j);
+						}
+						else {
+							M[j] = D;
+							stats.fail_canon++;
+						}
+					}
+				}
+				else
+					stats.fail_fast++;
+			}
+		}
+		output(A, B);
+		while (!q.empty()){
+			Rec r = q.front();
+			r.intent.copy(B);
+			r.intent.add(r.j);
+			if (rec_level == par_level){
+				memset(M, 0, sizeof(IntSet)* y); // clear first y IntSets that are possibly stale 
+				putToThread(r.extent, r.intent, r.j, M);
+			}
+			else
+				inclose3Impl(r.extent, r.intent, r.j + 1, M);
+			q.pop();
+		}
+	}
+
+	void parInclose3(){
+		threads = new ThreadBlock[num_threads];
+		for (size_t i = 0; i < num_threads; i++){
+			threads[i].implied = new IntSet[max((size_t)2, attributes + 1 - par_level)*attributes];
+			threads[i].M = IntSet::newArray(attributes);
+		}
+		ExtSet::Pool exts(1);
+		IntSet::Pool ints(1);
+		ExtSet X = exts.newFull();
+		IntSet Y = ints.newEmpty();
+		// intents with implied error, see FCbO papper
+		IntSet* implied = new IntSet[(par_level + 2)*attributes];
+		parInclose3Impl(X, Y, 0, implied, 0);
+		// start of multi-threaded part
+
+		vector<thread> trds(num_threads);
+
+		for (size_t t = 0; t < num_threads; t++){
+			trds[t] = thread([t, this]{
+				size_t j;
+				Context c = *this; // use separate context to count operations
+				memset(&c.stats, 0, sizeof(c.stats));
+				while (!threads[t].queue.empty()){
+					threads[t].queue.fetch(threads[t].A, threads[t].B, j, threads[t].M, attributes);
+					for (size_t i = 0; i < attributes; i++){
+						threads[t].implied[i] = threads[t].M[i];
+					}
+					c.inclose3Impl(threads[t].A, threads[t].B, j + 1, threads[t].implied);
+				}
+			});
+		}
+		for (auto & t : trds){
+			t.join();
 		}
 	}
 
@@ -788,10 +962,10 @@ ALGO fromName(const string& name){
 		return PFCBO;
 	}
 	else if (name == "pinclose2"){
-		return PFCBO;
+		return PINCLOSE2;
 	}
 	else if (name == "pinclose3"){
-		return PFCBO;
+		return PINCLOSE3;
 	}
 	return NONE;
 }
@@ -809,6 +983,10 @@ void start(Context& context, ALGO alg)
 		return context.inclose3();
 	case PFCBO:
 		return context.parFcbo();
+	case PINCLOSE2:
+		return context.parInclose2();
+	case PINCLOSE3:
+		return context.parInclose3();
 	}
 }
 
