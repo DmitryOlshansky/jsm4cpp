@@ -33,6 +33,84 @@ using namespace std;
 
 #define BIT ((size_t)1)
 #define MASK (~(size_t)0)
+
+
+struct LinearSet{
+	struct Pool{
+		Pool(size_t n):allocs(new LinearSet[n]), size(n), cur(0){}
+		LinearSet newEmpty(){
+			LinearSet ret = allocs[cur];
+			ret.nums = new vector<int>();
+			cur++;
+			return ret;
+		}
+		LinearSet newFull(){
+			LinearSet ret = allocs[cur];
+			ret.nums = new vector<int>(total);
+			for(size_t i=0; i<total; i++){
+				(*ret.nums)[i] = i;
+			}
+			cur++;
+			return ret;	
+		}
+		~Pool(){
+			for(size_t i=0; i<size; i++){
+				if(allocs[i].nums)
+					delete allocs[i].nums;
+			}
+			delete[] allocs;
+		}
+		LinearSet* allocs;
+		size_t size;
+		size_t cur;
+	};
+
+	LinearSet():nums(nullptr){}
+
+	template<class Fn>
+	void each(Fn&& fn){
+		for_each(nums->begin(), nums->end(), fn);
+	}
+	
+	void clearAll(){
+		nums->clear();
+	}
+
+	vector<int>* nums;
+
+	size_t raw_size(){
+		return nums->size()*sizeof(int) + sizeof(int);
+	}
+
+	void add(size_t val){
+		if(nums->size() && nums->back() < val)
+			nums->push_back(val);
+		else {
+			auto it = lower_bound(nums->begin(), nums->end(), val);
+			nums->insert(it, val);
+		}
+	}
+
+	void store(void* ptr){
+		int sz = (int)nums->size();
+		memcpy(ptr, &sz, sizeof(int));
+		memcpy((char*)ptr+sizeof(int), &(*nums)[0], sizeof(int)*nums->size());
+	}
+
+	void load(void* ptr){
+		int sz;
+		memcpy(&sz, ptr, sizeof(int));
+		nums->resize(sz);
+		memcpy(&(*nums)[0], (char*)ptr+sizeof(int), sizeof(int)*nums->size());
+	}
+
+	static void setSize(size_t size){
+		total = size;
+	}
+	static size_t total;
+};
+
+size_t LinearSet::total;
 /**
 	Bit-vector implementation of integer set concept.
 	Operations:
@@ -213,6 +291,34 @@ public:
 
 	void load(void* ptr){
 		memcpy(data, ptr, words*BYTES);
+	}
+
+	template<class Set>
+	static bool incCanonical(Set objs, size_t j, BitVec* rows, BitVec B, BitVec D)
+	{
+		size_t end = j/BITS;
+		for(size_t i=0; i<end; i++){
+			size_t invb = ~B.data[i];
+			size_t d = MASK;
+			objs.each([&d, rows, i](size_t k){
+				d &= rows[k].data[i];
+			});
+			if(d & invb)
+				return false;
+			D.data[i] = d;
+		}
+		size_t tail = j % BITS;
+		if (tail){
+			size_t invb = ~B.data[end];
+			size_t d = (BIT << tail) - 1;
+			objs.each([&d, rows, end](size_t k){
+				d &= rows[k].data[end];
+			});
+			D.data[end] = d;
+			if(d & invb)
+				return false;
+		}
+		return true;
 	}
 };
 
@@ -491,7 +597,7 @@ public:
 	// true - if produced extent is identical
 	bool filterExtent(ExtSet A, size_t y, ExtSet C){
 		bool ret = true;
-		C.clearAll();
+		//C.clearAll();
 		A.each([&](size_t i){
 			if (rows[i].has(y)){
 				C.add(i);
@@ -504,15 +610,13 @@ public:
 
 	// Close intent over extent C, up to y 
 	void partialClosure(ExtSet C, size_t y, IntSet D){
-		D.setAll();
+		//D.setAll();
 		C.each([&](size_t i){
-			if (rows[i].has(y)){
-				D.intersect(rows[i], y);
-			}
+			D.intersect(rows[i], y);
 		});
 		stats.closures++;
 	}
-	
+
 	// an interation of Close by One algorithm
 	void cboImpl(ExtSet A, IntSet B, size_t y) {
 		output(A, B);
@@ -620,7 +724,7 @@ public:
 			Rec r = q.front();
 			if (rec_level == par_level){
 				memset(M, 0, sizeof(IntSet) * y); // clear first y IntSets that are possibly stale 
-				putToThread(r.extent, r.intent, r.j + 1, M);
+				putToThread(r.extent, r.intent, r.j, M);
 			}
 			else{
 				parFcboImpl(r.extent, r.intent, r.j + 1, M, rec_level+1);
@@ -653,13 +757,14 @@ public:
 			trds[t] = thread([t, this]{
 				size_t j;
 				Context c = *this; // use separate context to count operations
+				ThreadBlock tb = threads[t];
 				memset(&c.stats, 0, sizeof(c.stats));
-				while (!threads[t].queue.empty()){
-					threads[t].queue.fetch(threads[t].A, threads[t].B, j, threads[t].M, attributes);
+				while (!tb.queue.empty()){
+					tb.queue.fetch(tb.A, tb.B, j, tb.M, attributes);
 					for (size_t i = 0; i < attributes; i++){
-						threads[t].implied[i] = threads[t].M[i];
+						tb.implied[i] = tb.M[i];
 					}
-					c.fcboImpl(threads[t].A, threads[t].B, j + 1, threads[t].implied);
+					c.fcboImpl(tb.A, tb.B, j + 1, tb.implied);
 				}
 			});
 		}
@@ -699,8 +804,8 @@ public:
 				}
 				else{
 					D = ints.newFull();
-					partialClosure(C, j, D);
-					if (B.equal(D, j)){ // equal up to <j
+					if(IntSet::incCanonical(C, j, rows, B, D)){
+					//if (B.equal(D, j)){ // equal up to <j
 						q.emplace(C, D, j);
 					}
 					else
@@ -812,7 +917,7 @@ public:
 						B.add(j);
 					}
 					else{
-						D = ints.newEmpty();
+						D = ints.newFull();
 						partialClosure(C, j, D);
 						if (B.equal(D, j)){ // equal up to <j
 							q.emplace(C, D, j);
@@ -857,7 +962,7 @@ public:
 						B.add(j);
 					}
 					else{
-						D = ints.newEmpty();
+						D = ints.newFull();
 						partialClosure(C, j, D);
 						if (B.equal(D, j)){ // equal up to <j
 							q.emplace(C, D, j);
