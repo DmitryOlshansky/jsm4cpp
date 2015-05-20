@@ -16,6 +16,7 @@ Authors: Dmitry Olshansky (c) 2015-
 #include <assert.h>
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
@@ -24,7 +25,6 @@ Authors: Dmitry Olshansky (c) 2015-
 #include <vector>
 #include <queue>
 #include <utility>
-#include <functional>
 #include <memory>
 #include <thread>
 #include <mutex>
@@ -35,17 +35,26 @@ Authors: Dmitry Olshansky (c) 2015-
 
 using namespace std;
 
+void usage(){
+	cerr << "Usage ./jsm -a<algorithm> -m<min-support> -s<attributes> -p<props> "
+		"-i+<plus-file> -i-<minus-file> -o<hyp-file> [-v<verbosity>] [-L<par-level>]"
+		"[-t<num-threads>]\n";
+	exit(1);
+}
+
 int main(int argc, char* argv[])
 {
 	ios_base::sync_with_stdio(false);
 	string arg;
 	ALGO alg = NONE;
-	ifstream in_file;
-	ofstream out_file;
+	string plus_in, minus_in;
+	string hyp_out;
 	size_t num_threads = 1;
 	size_t par_level = 2;
 	size_t verbose = 1;
-	size_t min_support = 0;
+	size_t min_support = 2;
+	size_t attributes = 0;
+	size_t props = 0;
 	int i = 1;
 	for (; i < argc && argv[i][0] == '-'; i++){
 		switch (argv[i][1]){
@@ -59,9 +68,26 @@ int main(int argc, char* argv[])
 			if (verbose == 2)
 				cerr << "Using algorithm " << alg << endl;
 			break;
+		case 's':
+			attributes = atoi(argv[i] + 2);
+			break;
+		case 'p':
+			props = atoi(argv[i] + 2);
+			break;
 		case 'm':
 			// minimal support
 			min_support = atoi(argv[i] + 2);
+			break;
+		case 'i':
+			if(argv[i][2] == '+'){
+				plus_in = string(argv[i] + 3);
+			}
+			else if(argv[i][2] == '-'){
+				minus_in = string(argv[i] + 3);
+			}
+			break;
+		case 'o':
+			hyp_out = string(argv[i] + 2);
 			break;
 		case 'v':
 			verbose = atoi(argv[i] + 2);
@@ -78,33 +104,48 @@ int main(int argc, char* argv[])
 	}
 	argv = argv + i;
 	argc = argc - i;
+	if(attributes == 0){
+		cerr << "No attributes specified" << endl;
+		usage();
+	}
+	if(props == 0){
+		cerr << "No properties specified" << endl;
+		usage();
+	}
 	if (alg == NONE){
 		cerr << "Algorithm not specified" << endl;
-		cerr << "Usage ./gen -a<algorithm> [-v<verbosity>] [-L<par-level>] [-t<num-threads>]";
-		return 1;
+		usage();
+	}
+	if (plus_in.empty()){
+		cerr << "No plus input file" << endl;
+		usage();
+	}
+	if (minus_in.empty()){
+		cerr << "No minus input file" << endl;
+		usage();
+	}
+	if (hyp_out.empty()){
+		cerr << "No hypotheses output file" << endl;
+		usage();
 	}
 	chrono::duration<double> elapsed;
 	{
 		Context context(verbose, num_threads, par_level, min_support);
-		if (argc > 0){
-			in_file.open(argv[0]);
-			if (!context.loadFIMI(in_file)){
-				cerr << "Failed to load any data.\n";
-				return 1;
-			}
+		ifstream plus_stream(plus_in.c_str());
+		ifstream minus_stream(minus_in.c_str());
+		ofstream hyp_stream(hyp_out.c_str());
+
+		if(!context.loadFIMI(plus_stream, attributes, props)){
+			cerr << "Failed to load any examples" << endl;
+			exit(1);
 		}
-		else if (!context.loadFIMI(cin)){
-			cerr << "Failed to load any data.\n";
-			return 1;
-		}
-		if (argc > 1){
-			out_file.open(argv[1]);
-			context.setOutput(out_file);
-		}
-		if (verbose == 3){
-			cerr << " Context:" << endl;
-			context.printContext();
-		}
+		IntSet* minus;
+		size_t minus_size;
+		context.readFIMI(minus_stream, &minus, &minus_size);
+		cerr << "Minus examples:" << minus_size << endl;
+
+		context.setOutput(hyp_stream);
+
 		auto beg = chrono::high_resolution_clock::now();
 		start(context, alg);
 		auto end = chrono::high_resolution_clock::now();
