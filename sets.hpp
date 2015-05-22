@@ -1,4 +1,16 @@
+/**
+	Различные реализации множеств для применения в JSM процедурах.
+
+	LinearSet - сортированный массив целых чисел
+	BitVec - битовый вектор фиксированной длины
+*/
 #pragma once
+
+#include <assert.h>
+#include <cstdlib>
+#include <cstring>
+#include <vector>
+
 
 using namespace std;
 

@@ -1,3 +1,5 @@
+#include "fimi.hpp"
+
 using namespace std;
 //TODO: add min_support filtering for InClose algorithms!
 /**
@@ -186,27 +188,6 @@ private:
 			tid = 0;
 	}
 
-	vector<vector<int>> readFIMIImpl(istream& inp, int* max_attribute){
-		vector<vector<int>> values;
-		*max_attribute = -1;
-		string s;
-		while (getline(inp, s)){
-			vector<int> vals;
-			stringstream ss(s);
-			for (;;){
-				int val = -1;
-				ss >> val;
-				if (val == -1)
-					break;
-				if (*max_attribute < val){
-					*max_attribute = val;
-				}
-				vals.push_back(val);
-			}
-			values.push_back(move(vals));
-		}
-		return values;
-	}
 public:
 	Context(size_t verbose_, size_t threads_, size_t par_level_, size_t min_support_)
 		:rows(), attributes(0), objects(0), min_support(min_support_), out(&cout), 
@@ -248,7 +229,7 @@ public:
 
 	bool loadFIMI(istream& inp, size_t total_attributes=0, size_t props=0){
 		int max_attribute;
-		vector<vector<int>> values = readFIMIImpl(inp, &max_attribute);
+		vector<vector<int>> values = ::readFIMI(inp, &max_attribute);
 		if (values.size() == 0){
 			return false;
 		}
@@ -309,7 +290,7 @@ public:
 	bool readFIMI(istream& inp, IntSet** sets, size_t* size)
 	{
 		int max_attribute;
-		vector<vector<int>> values = readFIMIImpl(inp, &max_attribute);
+		vector<vector<int>> values = ::readFIMI(inp, &max_attribute);
 		if(values.size() == 0)
 			return false;
 		auto objs = IntSet::newArray(values.size());
