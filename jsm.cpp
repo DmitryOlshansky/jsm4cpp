@@ -37,9 +37,21 @@ using namespace std;
 
 void usage(){
 	cerr << "Usage ./jsm -a<algorithm> -m<min-support> -s<attributes> -p<props> "
-		"-i+<plus-file> -i-<minus-file> -o<hyp-file> [-v<verbosity>] [-L<par-level>]"
+		"-i+<plus-file> -i-<minus-file> -o<hyp-file> [-f{direct|no-counter}] [-v<verbosity>] [-L<par-level>]"
 		"[-t<num-threads>]\n";
 	exit(1);
+}
+
+bool oppositeProps(Context& context, IntSet set, IntSet minus, size_t attributes, size_t props)
+{
+	for(size_t j=attributes; j<attributes+props; j++){
+		size_t p = context.mapAttribute(j);
+		if(minus.has(p) == set.has(p)){
+			// at least one is not opposite
+			return true; 
+		}
+	}
+	return false; // all opposite 
 }
 
 int main(int argc, char* argv[])
@@ -55,6 +67,7 @@ int main(int argc, char* argv[])
 	size_t min_support = 2;
 	size_t attributes = 0;
 	size_t props = 0;
+	bool direct = true;
 	int i = 1;
 	for (; i < argc && argv[i][0] == '-'; i++){
 		switch (argv[i][1]){
@@ -77,6 +90,18 @@ int main(int argc, char* argv[])
 		case 'm':
 			// minimal support
 			min_support = atoi(argv[i] + 2);
+			break;
+		case 'f':
+			arg = string(argv[i] + 2);
+			if(arg == "direct"){
+				direct = true;
+			}
+			else if(arg == "no-counter"){
+				direct = false;
+			}
+			else{
+				cerr << "No such filter: " << arg << endl;
+			}
 			break;
 		case 'i':
 			if(argv[i][2] == '+'){
@@ -145,7 +170,36 @@ int main(int argc, char* argv[])
 		cerr << "Minus examples:" << minus_size << endl;
 
 		context.setOutput(hyp_stream);
-
+		if(direct){ // check that hypothesis are not equal some opposing example
+			context.setFilter([&](IntSet set){
+				for(size_t i=0; i<minus_size; i++){
+					if(set.equal(minus[i], attributes)){
+						// check that all properties are opposite
+						if(oppositeProps(context, set, minus[i], attributes, props)){
+							return false;
+						}
+					}
+				}
+				return true; // keep
+			});
+		}
+		else{
+			IntSet::Pool pool(1);
+			IntSet tmp = pool.newFull();
+			context.setFilter([&](IntSet set){
+				for(size_t i=0; i<minus_size; i++){
+					tmp.copy(set);
+					tmp.intersect(minus[i], attributes);
+					// can fit hypothesis to opposite example
+					if(tmp.equal(minus[i], attributes)){
+						if(oppositeProps(context, set, minus[i], attributes, props)){
+							return false;
+						}
+					}
+				}
+				return true;
+			});
+		}
 		auto beg = chrono::high_resolution_clock::now();
 		start(context, alg);
 		auto end = chrono::high_resolution_clock::now();

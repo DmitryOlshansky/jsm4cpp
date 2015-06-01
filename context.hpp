@@ -286,6 +286,11 @@ public:
 		return true;
 	}
 
+	// get sorted mapping of attribute n
+	size_t mapAttribute(size_t n){
+		return revMapping[n];
+	}
+
 	// load and identically reorder attributes
 	bool readFIMI(istream& inp, IntSet** sets, size_t* size)
 	{
