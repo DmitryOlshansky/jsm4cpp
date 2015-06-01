@@ -241,13 +241,26 @@ public:
 	}
 
 	// set number j
-	void add(size_t j){
+	BitVec& add(size_t j){
 		data[j / BITS] |= (BIT) << (j & MASK);
+		return *this;
+	}
+
+	BitVec& remove(size_t j){
+		data[j / BITS] &= ~((BIT) << (j & MASK));
+		return *this;
 	}
 
 	// contains number j
 	bool has(size_t j) {
 		return (data[j / BITS] & (BIT << (j & MASK))) != 0;
+	}
+
+	BitVec& merge(BitVec& vec){
+		for (size_t i = 0; i < words;i++){
+			data[i] |= vec.data[i];
+		}
+		return *this;
 	}
 
 	BitVec& intersect(BitVec& vec){

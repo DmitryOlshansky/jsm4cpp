@@ -57,14 +57,13 @@ vector<size_t> allIncludes(Set example, vector<Set>& set){
 	return found;
 }
 
-void intersectAll(vector<Set>& which, const vector<size_t> idx, Set dest)
-{
+void mergeAll(vector<Set>& which, const vector<size_t> idx, Set dest){
 	for(auto i : idx){
-		dest.intersect(which[i]);
+		dest.merge(which[i]);
 	}
 }
 
-void write_array(const vector<size_t>& nums, ostream& output){
+void writeArray(const vector<size_t>& nums, ostream& output){
 	output << "[";
 	for(size_t i=0; i<nums.size(); i++){
 		if(i != 0){
@@ -75,8 +74,20 @@ void write_array(const vector<size_t>& nums, ostream& output){
 	output<< "]";
 }
 
+void joinProps(Set set, Set max_plus, Set max_minus, size_t attrs, size_t props){
+	max_plus.merge(max_minus); //сливаем плюс и минус
+	// теперь 11 обозначает конфликт, переводим в 00
+	for(size_t i=attrs; i<attrs+props; i+=2){
+		bool a1 = max_plus.has(i), a2 = max_plus.has(i+1);
+		if(a1 && a2){
+			max_plus.remove(i).remove(i+1);
+		}
+	}
+	set.intersect(max_plus); // персекаем с тау примером
+}
+
 // Вывести свойства как (+)*(?)*(-)* строку
-void write_activity(Set set, size_t attrs, size_t props, ostream& output){
+void writeActivity(Set set, size_t attrs, size_t props, ostream& output){
 	// свойства идут парами
 	for(size_t i=attrs; i<attrs+props; i+=2){
 		bool a1 = set.has(i), a2 = set.has(i+1);
@@ -95,21 +106,28 @@ void write_activity(Set set, size_t attrs, size_t props, ostream& output){
 void classify(size_t attrs, size_t props, vector<Set>& plus, 
 vector<Set>& minus, vector<Set>& tau, ostream& output){
 	output << "[\n";
+	Set::Pool pool(2);
+	auto max_plus = pool.newEmpty();
+	auto max_minus = pool.newEmpty();
 	for(size_t i=0; i<tau.size(); i++){
 		auto& t = tau[i];
 		auto pluses = allIncludes(t, plus);
 		auto minuses = allIncludes(t, minus);
-		intersectAll(plus, pluses, t);
-		intersectAll(minus, minuses, t);
+		max_plus.clearAll();
+		max_minus.clearAll();
+		mergeAll(plus, pluses, max_plus);
+		mergeAll(minus, minuses, max_minus);
+		joinProps(t, max_plus, max_minus, attrs, props);
+
 		if(i != 0)
 			output << ",\n";
 		output << "{ \"hypot_plus\": ";
-		write_array(pluses, output);
+		writeArray(pluses, output);
 		output << ",\n \"hypot_minus\": ";
-		write_array(minuses, output);
+		writeArray(minuses, output);
 	
 		output << ",\n\"activity\": \"";
-		write_activity(t, attrs, props, output);
+		writeActivity(t, attrs, props, output);
 		output << "\"\n";
 		output << "\n}\n";
 	}

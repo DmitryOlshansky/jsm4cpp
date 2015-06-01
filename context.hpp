@@ -296,8 +296,10 @@ public:
 	{
 		int max_attribute;
 		vector<vector<int>> values = ::readFIMI(inp, &max_attribute);
-		if(values.size() == 0)
+		if(values.size() == 0){
+			*size = 0;
 			return false;
+		}
 		auto objs = IntSet::newArray(values.size());
 		for (size_t i = 0; i < values.size(); i++){
 			objs[i].clearAll();
