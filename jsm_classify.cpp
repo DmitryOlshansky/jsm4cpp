@@ -1,6 +1,10 @@
 /**
 	Классификация примеров для Химии.
-	Аналогично можно применить
+	Свойства:
+	10 - плюс
+	01 - минус
+	11 - тау
+	00 - противоречие
 */
 #include <algorithm>
 #include <fstream>
@@ -53,6 +57,13 @@ vector<size_t> allIncludes(Set example, vector<Set>& set){
 	return found;
 }
 
+void intersectAll(vector<Set>& which, const vector<size_t> idx, Set dest)
+{
+	for(auto i : idx){
+		dest.intersect(which[i]);
+	}
+}
+
 void write_array(const vector<size_t>& nums, ostream& output){
 	output << "[";
 	for(size_t i=0; i<nums.size(); i++){
@@ -64,19 +75,42 @@ void write_array(const vector<size_t>& nums, ostream& output){
 	output<< "]";
 }
 
-// число аттрибутов
-void classify(size_t attrs, size_t props, vector<Set>& plus, vector<Set>& minus, vector<Set>& tau, ostream& output){
+// Вывести свойства как (+)*(?)*(-)* строку
+void write_activity(Set set, size_t attrs, size_t props, ostream& output){
+	// свойства идут парами
+	for(size_t i=attrs; i<attrs+props; i+=2){
+		bool a1 = set.has(i), a2 = set.has(i+1);
+		if(a1 && a2)
+			output << '?';
+		else if(a1)
+			output << '+';
+		else if(a2)
+			output << '-';
+		else
+			output << '0';
+	}
+}
+
+// 
+void classify(size_t attrs, size_t props, vector<Set>& plus, 
+vector<Set>& minus, vector<Set>& tau, ostream& output){
 	output << "[\n";
 	for(size_t i=0; i<tau.size(); i++){
 		auto& t = tau[i];
 		auto pluses = allIncludes(t, plus);
 		auto minuses = allIncludes(t, minus);
+		intersectAll(plus, pluses, t);
+		intersectAll(minus, minuses, t);
 		if(i != 0)
 			output << ",\n";
 		output << "{ \"hypot_plus\": ";
 		write_array(pluses, output);
 		output << ",\n \"hypot_minus\": ";
 		write_array(minuses, output);
+	
+		output << ",\n\"activity\": \"";
+		write_activity(t, attrs, props, output);
+		output << "\"\n";
 		output << "\n}\n";
 	}
 	output << "]\n";
