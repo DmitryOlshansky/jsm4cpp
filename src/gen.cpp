@@ -30,8 +30,7 @@ Authors: Dmitry Olshansky (c) 2015-
 #include <mutex>
 #include <chrono>
 
-#include "sets.hpp"
-#include "context.hpp"
+#include "fca.hpp"
 
 using namespace std;
 
