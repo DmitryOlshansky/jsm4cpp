@@ -8,7 +8,7 @@
 class CbO: virtual public Algorithm {
 	using Algorithm::Algorithm;
 	// an interation of Close by One algorithm
-	void cboImpl(ExtSet A, IntSet B, size_t y) {
+	void impl(ExtSet A, IntSet B, size_t y) {
 		output(A, B);
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
@@ -19,7 +19,7 @@ class CbO: virtual public Algorithm {
 				// C empty, D full is a precondition
 				if(closeConcept(A, j, C, D)){ // passed min support test
 					if (B.equal(D, j)){ // equal up to <j
-						cboImpl(C, D, j + 1);
+						impl(C, D, j + 1);
 					}
 					else{
 						stats.fail_canon++;
@@ -39,13 +39,16 @@ class CbO: virtual public Algorithm {
 		X.each([&](size_t i){
 			Y.intersect(row(i));
 		});
-		cboImpl(X, Y, 0);
+		impl(X, Y, 0);
 	}
-	friend class ParCbO;
+public:
+	void run(SimpleState& state){
+		impl(state.extent, state.intent, state.j);
+	}
 };
 
 
-class ParCbO: virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState> {
+class ParCbO: virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState, CbO> {
 	using Algorithm::Algorithm;
 	// an interation of Close by One algorithm
 	void parCboImpl(ExtSet A, IntSet B, size_t y, size_t rec_level) {
@@ -99,17 +102,5 @@ class ParCbO: virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleSta
 			Y.intersect(row(i));
 		});
 		parCboImpl(X, Y, 0, 0);
-	}
-
-	void parallelStep(size_t tid){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		SimpleState state;
-		state.extent = exts.newEmpty();
-		state.intent = ints.newEmpty();
-		auto sub = fork<CbO>();
-		while (extract(tid, state)){
-			sub.cboImpl(state.extent, state.intent, state.j);
-		}
 	}
 };

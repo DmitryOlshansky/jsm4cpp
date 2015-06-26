@@ -8,7 +8,7 @@
 class FCbO : virtual public HybridAlgorithm {
 	using HybridAlgorithm::HybridAlgorithm;
 
-	void fcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N){
+	void impl(ExtSet A, IntSet B, size_t y, IntSet* N){
 		output(A, B);
 		if (y == attributes())
 			return;
@@ -41,7 +41,7 @@ class FCbO : virtual public HybridAlgorithm {
 		
 		while (!q.empty()){
 			Rec r = q.front();
-			fcboImpl(r.extent, r.intent, r.j+1, M);
+			impl(r.extent, r.intent, r.j+1, M);
 			q.pop();
 		}
 	}
@@ -56,13 +56,15 @@ class FCbO : virtual public HybridAlgorithm {
 		});
 		// intents with implied error, see FCbO papper
 		IntSet* implied = new IntSet[(attributes()+1)*attributes()];
-		fcboImpl(X, Y, 0, implied);
+		impl(X, Y, 0, implied);
 	}
-	
-	friend class ParFCbO;
+public:
+	void run(ExtendedState& state){
+		impl(state.extent, state.intent, state.j, state.implied);
+	}
 };
 
-class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<ExtendedState>{
+class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<ExtendedState, FCbO>{
 	using ParallelAlgorithm::ParallelAlgorithm;
 
 	void parFcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
@@ -120,20 +122,5 @@ class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<Extende
 		// intents with implied error, see FCbO papper
 		IntSet* implied = new IntSet[(attributes()+1)*attributes()];
 		parFcboImpl(X, Y, 0, implied, 0);
-	}
-
-
-	void parallelStep(size_t tid){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		ExtendedState state;
-		state.extent = exts.newEmpty();
-		state.intent = ints.newEmpty();
-		state.implied = new IntSet[max((size_t)2, attributes() + 1 - parLevel())*attributes()]; 
-		auto sub = fork<FCbO>();
-		while (!extract(tid, state)){
-			sub.fcboImpl(state.extent, state.intent, state.j, state.implied);
-		}
-		delete[] state.implied;
 	}
 };

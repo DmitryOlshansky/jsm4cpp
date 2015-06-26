@@ -412,7 +412,7 @@ public:
 };
 
 // Algorithms that use thread pool to run many sub-tasks in parallel
-template<class State>
+template<class State, class BaseAlgo>
 class ParallelAlgorithm : virtual public Algorithm{
 	enum { QUEUE_SIZE = 16 * 1024 };
 	struct ThreadBlock{
@@ -424,9 +424,8 @@ class ParallelAlgorithm : virtual public Algorithm{
 
 	vector<ThreadBlock> threadBlks;
 	virtual void serialStep()=0; // main serial algorithm - process up to level L
-	virtual void parallelStep(size_t tid)=0; // per worker functions fetch queue, do normal recursion etc.
 
-	// generic parallel algorithm
+	// generic parallel algorithm using serialStep and base algorithm for each sub-task
 	void algorithm(){
 		threadBlks.resize(threads());
 		serialStep();
@@ -435,7 +434,16 @@ class ParallelAlgorithm : virtual public Algorithm{
 
 		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([this, t]{
-				this->parallelStep(t);
+				State state;
+				ExtSet::Pool exts(1);
+				IntSet::Pool ints(1);
+				state.extent = exts.newEmpty();
+				state.intent = ints.newEmpty();
+				state.alloc(*this);
+				auto sub = fork<BaseAlgo>();
+				while (extract(t, state)){
+					sub.run(state);
+				}
 			});
 		}
 		for (auto & t : trds){
@@ -466,7 +474,9 @@ protected:
 struct SimpleState {
 	ExtSet extent;
 	IntSet intent;
-	size_t j; // attribute
+	size_t j; // attribute #
+
+	void alloc(Algorithm& algo){}
 
 	void save(BlockQueue& queue){
 		queue.put(extent, intent, j);
@@ -481,9 +491,13 @@ struct SimpleState {
 struct ExtendedState {
 	ExtSet extent;
 	IntSet intent;
-	size_t j; // attribute
-	IntSet* implied;
+	size_t j; // attribute #
+	IntSet* implied; // must be inited
 	size_t attributes;
+
+	void alloc(Algorithm& algo){
+		implied = new IntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
+	}
 
 	void save(BlockQueue& queue){
 		queue.put(extent, intent, j);
@@ -491,5 +505,9 @@ struct ExtendedState {
 
 	void load(BlockQueue& queue){
 		queue.fetch(extent, intent, j);
+	}
+
+	~ExtendedState(){
+		delete[] implied;
 	}
 };

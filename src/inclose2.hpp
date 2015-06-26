@@ -8,7 +8,7 @@
 class InClose2 : virtual public HybridAlgorithm {
 	using HybridAlgorithm::HybridAlgorithm;
 
-	void inclose2Impl(ExtSet A, IntSet B, size_t y){
+	void impl(ExtSet A, IntSet B, size_t y){
 		if (y == attributes()){
 			output(A, B);
 			return;
@@ -40,7 +40,7 @@ class InClose2 : virtual public HybridAlgorithm {
 			Rec r = q.front();
 			r.intent.copy(B);
 			r.intent.add(r.j);
-			inclose2Impl(r.extent, r.intent, r.j+1);
+			impl(r.extent, r.intent, r.j+1);
 			q.pop();
 		}
 	}
@@ -50,16 +50,18 @@ class InClose2 : virtual public HybridAlgorithm {
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
-		inclose2Impl(X, Y, 0);
+		impl(X, Y, 0);
 	}
-
-	friend class ParInClose2;
+public:
+	void run(SimpleState& state){
+		impl(state.extent, state.intent, state.j);
+	}
 };
 
-class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState> {
+class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState, InClose2> {
 	using ParallelAlgorithm::ParallelAlgorithm;
 
-	void parInclose2Impl(ExtSet A, IntSet B, size_t y, size_t rec_level){
+	void impl(ExtSet A, IntSet B, size_t y, size_t rec_level){
 		if (y == attributes()){
 			output(A, B);
 			return;
@@ -94,7 +96,7 @@ class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<Sim
 			if (rec_level == parLevel())
 				schedule(SimpleState{r.extent, r.intent, r.j + 1});
 			else
-				parInclose2Impl(r.extent, r.intent, r.j + 1, rec_level+1);
+				impl(r.extent, r.intent, r.j + 1, rec_level+1);
 			q.pop();
 		}
 	}
@@ -104,19 +106,6 @@ class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<Sim
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
-		parInclose2Impl(X, Y, 0, 0);
-	}
-
-	void parallelStep(size_t tid){
-		SimpleState state;
-		ExtSet::Pool extP(1);
-		IntSet::Pool intP(1);
-		state.extent = extP.newEmpty();
-		state.intent = intP.newEmpty();
-		auto sub = fork<InClose2>();
-		memset(&sub.stats, 0, sizeof(sub.stats));
-		while (extract(tid, state)){
-			sub.inclose2Impl(state.extent, state.intent, state.j);
-		}
+		impl(X, Y, 0, 0);
 	}
 };

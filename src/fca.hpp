@@ -32,6 +32,7 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 		{ "pcbo", &make<ParCbO> },
 		{ "pfcbo", &make<ParInClose2> },
 		{ "pinclose2", &make<ParInClose2> },
+		// { "pinclose3", &make<ParInClose3> },
 	};
 	for(auto& e : table){
 		if(name == e.name)

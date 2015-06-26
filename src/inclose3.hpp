@@ -8,7 +8,7 @@
 class InClose3 : virtual public HybridAlgorithm {
 	using HybridAlgorithm::HybridAlgorithm;
 
-	void inclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N){
+	void impl(ExtSet A, IntSet B, size_t y, IntSet* N){
 		if (y == attributes()){
 			output(A, B);
 			return;
@@ -48,7 +48,7 @@ class InClose3 : virtual public HybridAlgorithm {
 			Rec r = q.front();
 			r.intent.copy(B);
 			r.intent.add(r.j);
-			inclose3Impl(r.extent, r.intent, r.j + 1, M);
+			impl(r.extent, r.intent, r.j + 1, M);
 			q.pop();
 		}
 	}
@@ -60,7 +60,11 @@ class InClose3 : virtual public HybridAlgorithm {
 		IntSet Y = ints.newEmpty();
 		// intents with implied error, see FCbO papper
 		IntSet* implied = new IntSet[(attributes() + 1)*attributes()];
-		inclose3Impl(X, Y, 0, implied);
+		impl(X, Y, 0, implied);
+	}
+public:
+	void run(ExtendedState& state){
+		impl(state.extent, state.intent, state.j, state.implied);
 	}
 	/*
 
