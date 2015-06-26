@@ -1,4 +1,12 @@
+#include <algorithm>
+#include <functional>
+#include <mutex>
+#include <memory>
+#include <queue>
+
+#include "sets.hpp"
 #include "fimi.hpp"
+
 
 using namespace std;
 //TODO: add min_support filtering for InClose algorithms!
@@ -85,11 +93,8 @@ struct BlockQueue{
 };
 
 
-mutex output_mtx;
-
 class Algorithm {
 private:
-	enum { QUEUE_SIZE = 16 * 1024 };
 	IntSet* rows; // attributes of objects
 	size_t attributes_;
 	size_t objects_;
@@ -99,28 +104,13 @@ private:
 	size_t* revMapping; // attributes to sorted positions
 	ostream* out_;
 	ostream* diag_;
+	shared_ptr<mutex> output_mtx;
 	//
 	size_t verbose_;
 	size_t par_level_;
 	size_t threads_;
 	
 	function<bool(IntSet)> filter_;
-
-	struct ThreadBlock{
-		BlockQueue queue;
-		ExtSet::Pool aPool; 
-		IntSet::Pool bPool;
-		ExtSet A;
-		IntSet B;
-		IntSet* implied; // if has fast test, stack of (attributes - par_level)*attributes pointers
-		IntSet* M; // if has fast test, real flat array of intents used to unpack from queue
-		ThreadBlock() :queue(QUEUE_SIZE), aPool(1), bPool(1){
-			A = aPool.newEmpty();
-			B = bPool.newEmpty();
-		}
-	};
-
-	ThreadBlock* threadBlks;
 
 	struct Stats{
 		int total;
@@ -144,7 +134,7 @@ private:
 			s << '\n';
 			if(nonempty)
 			{
-				lock_guard<mutex> lock(output_mtx);
+				lock_guard<mutex> lock(*output_mtx);
 				string str = s.str();
 				sink.write(str.c_str(), str.size());
 			}
@@ -154,34 +144,51 @@ private:
 
 	void printStats(){
 		if (verbose() >= 2){
-			lock_guard<mutex> lock(output_mtx);
+			lock_guard<mutex> lock(*output_mtx);
 			*diag_ << "Total\tClosure\tCanonical\tFast\n"
 			     << stats.total << '\t'<< stats.closures 
 				 << '\t' << stats.fail_canon << '\t' << stats.fail_fast << endl;
 		}
 	}
 
-	void putToThread(ExtSet extent, IntSet intent, size_t j, IntSet* M){
-		static int tid = 0;
-		threadBlks[tid].queue.put(extent, intent, j, M, attributes());
-		tid += 1;
-		if (tid == threads())
-			tid = 0;
-	}
-	void putToThread(ExtSet extent, IntSet intent, size_t j){
-		static int tid = 0;
-		threadBlks[tid].queue.put(extent, intent, j);
-		tid += 1;
-		if (tid == threads())
-			tid = 0;
-	}
-
 	virtual void algorithm()=0;
 protected:
-	Stats stats;
+	
+	// print intent and/or extent
+	void output(ExtSet A, IntSet B){
+		if(verbose() >= 1){
+			if(!filter_ || filter_(B))
+				printAttributes(B, *out_);
+		}
+	}
 public:
-	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0), out_(&cout),
-		verbose_(false), threads_(0), par_level_(0){}
+	Stats stats; // TODO: hackish
+
+	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0), out_(&cout), 
+	diag_(&cerr), verbose_(false), threads_(0), par_level_(0){
+		output_mtx = make_shared<mutex>();
+	}
+
+	// clone & reuse most of current algorithm's state but with empty stats
+	template<class Algo>
+	Algo fork()
+	{
+		Algo algo;
+		algo.rows = rows;
+		algo.attributes_ = attributes_;
+		algo.objects_ = objects_;
+		algo.min_support_ = min_support_;
+		algo.out_ =  out_;
+		algo.diag_ = diag_;
+		algo.verbose_ = verbose_;
+		algo.threads_ = threads_;
+		algo.par_level_ = par_level_;
+		algo.props_start = props_start;
+		algo.attributesNums = attributesNums;
+		algo.revMapping = revMapping;
+		algo.output_mtx = output_mtx;
+		return algo;
+	}
 
 	virtual ~Algorithm(){
 		printStats();
@@ -251,14 +258,6 @@ public:
 	// Run specified algorithm with current parameters and data
 	void run(){
 		algorithm();
-	}
-
-	// print intent and/or extent
-	void output(ExtSet A, IntSet B){
-		if(verbose() >= 1){
-			if(!filter_ || filter_(B))
-				printAttributes(B, *out_);
-		}
 	}
 
 	void printContext(){
@@ -410,6 +409,56 @@ public:
 	};
 };
 
+// Algorithms that use thread pool to run many sub-tasks in parallel
+template<class State>
+class ParallelAlgorithm : virtual public Algorithm{
+	enum { QUEUE_SIZE = 16 * 1024 };
+	struct ThreadBlock{
+		BlockQueue queue;
+		IntSet* implied; // if has fast test, stack of (attributes - par_level)*attributes pointers
+		IntSet* M; // if has fast test, real flat array of intents used to unpack from queue
+		ThreadBlock() :queue(QUEUE_SIZE){}
+	};
+
+	vector<ThreadBlock> threadBlks;
+	virtual void serialStep()=0; // main serial algorithm - process up to level L
+	virtual void parallelStep(size_t tid)=0; // per worker functions fetch queue, do normal recursion etc.
+
+	// generic parallel algorithm
+	void algorithm(){
+		threadBlks.resize(threads());
+		serialStep();
+		// start of multi-threaded part
+		vector<thread> trds(threads());
+
+		for (size_t t = 0; t < threads(); t++){
+			trds[t] = thread([this, t]{
+				this->parallelStep(t);
+			});
+		}
+		for (auto & t : trds){
+			t.join();
+		}
+	}
+protected:	
+	void schedule(State state){
+		static int tid = 0;
+		state.save(threadBlks[tid].queue);
+		tid += 1;
+		if (tid == threads())
+			tid = 0;
+	}
+
+ 	// get next item for the worker thread 'tid'
+	bool extract(size_t tid, State& state){
+		if(threadBlks[tid].queue.empty()){
+			return false;
+		}
+		state.load(threadBlks[tid].queue);
+		return true;
+	}
+
+};
 
 class CbO: virtual public Algorithm {
 	using Algorithm::Algorithm;
@@ -450,7 +499,7 @@ class CbO: virtual public Algorithm {
 };
 
 class InClose2 : virtual public HybridAlgorithm {
-	using Algorithm::Algorithm;
+	using HybridAlgorithm::HybridAlgorithm;
 
 	void inclose2Impl(ExtSet A, IntSet B, size_t y){
 		if (y == attributes()){
@@ -496,7 +545,28 @@ class InClose2 : virtual public HybridAlgorithm {
 		IntSet Y = ints.newEmpty();
 		inclose2Impl(X, Y, 0);
 	}
-	/*
+
+	friend class ParInClose2;
+};
+
+// minimalistic state for InClose2/CbO call
+struct SimpleState {
+	ExtSet extent;
+	IntSet intent;
+	size_t j; // attribute
+
+	void save(BlockQueue& queue){
+		queue.put(extent, intent, j);
+	}
+
+	void load(BlockQueue& queue){
+		queue.fetch(extent, intent, j);
+	}
+};
+
+class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState> {
+	using ParallelAlgorithm::ParallelAlgorithm;
+
 	void parInclose2Impl(ExtSet A, IntSet B, size_t y, size_t rec_level){
 		if (y == attributes()){
 			output(A, B);
@@ -530,44 +600,37 @@ class InClose2 : virtual public HybridAlgorithm {
 			r.intent.copy(B);
 			r.intent.add(r.j);
 			if (rec_level == parLevel())
-				putToThread(r.extent, r.intent, r.j);
+				schedule(SimpleState{r.extent, r.intent, r.j + 1});
 			else
 				parInclose2Impl(r.extent, r.intent, r.j + 1, rec_level+1);
 			q.pop();
 		}
 	}
 
-
-	void parInclose2(){
-		threadBlks = new ThreadBlock[threads()];
+	void serialStep(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
 		parInclose2Impl(X, Y, 0, 0);
-		// start of multi-threaded part
-		vector<thread> trds(threads());
+	}
 
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([t, this]{
-				size_t j;
-				Algorithm c = *this; // use separate Algorithm to count operations
-				memset(&c.stats, 0, sizeof(c.stats));
-				while (!threadBlks[t].queue.empty()){
-					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j);
-					c.inclose2Impl(threadBlks[t].A, threadBlks[t].B, j + 1);
-				}
-			});
-		}
-		for (auto & t : trds){
-			t.join();
+	void parallelStep(size_t tid){
+		SimpleState state;
+		ExtSet::Pool extP(1);
+		IntSet::Pool intP(1);
+		state.extent = extP.newEmpty();
+		state.intent = intP.newEmpty();
+		auto sub = fork<InClose2>();
+		memset(&sub.stats, 0, sizeof(sub.stats));
+		while (extract(tid, state)){
+			sub.inclose2Impl(state.extent, state.intent, state.j);
 		}
 	}
-	*/
 };
 
 class InClose3 : virtual public HybridAlgorithm {
-	using Algorithm::Algorithm;
+	using HybridAlgorithm::HybridAlgorithm;
 
 	void inclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N){
 		if (y == attributes()){
@@ -714,7 +777,7 @@ class InClose3 : virtual public HybridAlgorithm {
 };
 
 class FCbO : virtual public HybridAlgorithm {
-	using Algorithm::Algorithm;
+	using HybridAlgorithm::HybridAlgorithm;
 
 	void fcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N){
 		output(A, B);
@@ -768,6 +831,8 @@ class FCbO : virtual public HybridAlgorithm {
 	}
 
 /*
+	threadBlks[tid].queue.put(extent, intent, j, M, attributes());
+	
 	void parFcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
 		output(A, B);
 		if (y == attributes())
@@ -854,19 +919,29 @@ class FCbO : virtual public HybridAlgorithm {
 	*/
 };
 
+template<class Algo> unique_ptr<Algorithm> make(){
+	return unique_ptr<Algorithm>(new Algo);
+}
+
 unique_ptr<Algorithm> fromName(const string& name){
 	using UP = unique_ptr<Algorithm>;
-	if (name == "cbo"){
-		return UP(new CbO);
-	}
-	else if(name == "fcbo"){
-		return UP(new FCbO);
-	}
-	else if(name == "inclose2"){
-		return UP(new InClose2);
-	}
-	else if(name == "inclose3"){
-		return UP(new InClose3);
+	struct Entry{
+		const char* name;
+		unique_ptr<Algorithm> (*factory)();
+	};
+
+	static vector<Entry> table = {
+	// serial
+		{ "cbo", &make<CbO> },
+		{ "fcbo", &make<FCbO> },
+		{ "inclose2", &make<InClose2> },
+		{ "inclose3", &make<InClose3> },
+	// parallel
+		{ "pinclose2", &make<ParInClose2> },
+	};
+	for(auto& e : table){
+		if(name == e.name)
+			return e.factory();
 	}
 	return UP(nullptr);
 }

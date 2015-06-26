@@ -1,13 +1,11 @@
 for alg in cbo fcbo inclose2 inclose3 pfcbo pinclose2 pinclose3
 do
     echo $alg
-    ./gen -a$alg -v0 -L1 -t4 $1 | sort > $alg-$1
-#    ./gen2 -a$alg -v0 -L2 -t4 $1 | sort > $alg-$1-2
+    ./gen -a$alg -v1 -L1 -t4 $1 | sort > "$alg-$1"
 done
 
-for alg in cbo fcbo inclose2 inclose3 pfcbo pinclose2 pinclose3
+for alg in fcbo inclose2 inclose3 pfcbo pinclose2 pinclose3
 do
-    diff -q cbo-$1 $alg-$1
-#    diff -q cbo-$1 $alg-$1-2
+    diff --brief "cbo-$1" "$alg-$1"
 done
 

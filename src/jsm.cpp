@@ -42,10 +42,10 @@ void usage(){
 	exit(1);
 }
 
-bool oppositeProps(Algorithm& context, IntSet set, IntSet minus, size_t attributes, size_t props)
+bool oppositeProps(Algorithm& alg, IntSet set, IntSet minus, size_t attributes, size_t props)
 {
 	for(size_t j=attributes; j<attributes+props; j++){
-		size_t p = context.mapAttribute(j);
+		size_t p = alg.mapAttribute(j);
 		if(minus.has(p) == set.has(p)){
 			// at least one is not opposite
 			return true; 
@@ -155,29 +155,28 @@ int main(int argc, char* argv[])
 	}
 	chrono::duration<double> elapsed;
 	{
-		CbO context;
-		context.verbose(verbose).threads(num_threads)
+		alg->verbose(verbose).threads(num_threads)
 			.parLevel(par_level).minSupport(min_support);
 		ifstream plus_stream(plus_in.c_str());
 		ifstream minus_stream(minus_in.c_str());
 		ofstream hyp_stream(hyp_out.c_str());
 
-		if(!context.loadFIMI(plus_stream, attributes, props)){
+		if(!alg->loadFIMI(plus_stream, attributes, props)){
 			cerr << "Failed to load any examples" << endl;
 			exit(1);
 		}
 		IntSet* minus;
 		size_t minus_size;
-		context.readFIMI(minus_stream, &minus, &minus_size);
+		alg->readFIMI(minus_stream, &minus, &minus_size);
 		cerr << "Minus examples:" << minus_size << endl;
 
-		context.output(hyp_stream);
+		alg->output(hyp_stream);
 		if(direct){ // check that hypothesis are not equal some opposing example
-			context.filter([&](IntSet set){
+			alg->filter([&](IntSet set){
 				for(size_t i=0; i<minus_size; i++){
 					if(set.equal(minus[i], attributes)){
 						// check that all properties are opposite
-						if(oppositeProps(context, set, minus[i], attributes, props)){
+						if(oppositeProps(*alg, set, minus[i], attributes, props)){
 							return false;
 						}
 					}
@@ -188,13 +187,13 @@ int main(int argc, char* argv[])
 		else{
 			IntSet::Pool pool(1);
 			IntSet tmp = pool.newFull();
-			context.filter([&](IntSet set){
+			alg->filter([&](IntSet set){
 				for(size_t i=0; i<minus_size; i++){
 					tmp.copy(set);
 					tmp.intersect(minus[i], attributes);
 					// can fit hypothesis to opposite example
 					if(tmp.equal(minus[i], attributes)){
-						if(oppositeProps(context, set, minus[i], attributes, props)){
+						if(oppositeProps(*alg, set, minus[i], attributes, props)){
 							return false;
 						}
 					}
@@ -203,7 +202,7 @@ int main(int argc, char* argv[])
 			});
 		}
 		auto beg = chrono::high_resolution_clock::now();
-		context.run();
+		alg->run();
 		auto end = chrono::high_resolution_clock::now();
 		elapsed = end - beg;
 	}

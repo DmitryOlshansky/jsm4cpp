@@ -85,30 +85,29 @@ int main(int argc, char* argv[])
 	}
 	chrono::duration<double> elapsed;
 	{
-		CbO context;
-		context.verbose(verbose).threads(num_threads)
+		alg->verbose(verbose).threads(num_threads)
 			.parLevel(par_level).minSupport(min_support);
 		if (argc > 0){
 			in_file.open(argv[0]);
-			if (!context.loadFIMI(in_file)){
+			if (!alg->loadFIMI(in_file)){
 				cerr << "Failed to load any data.\n";
 				return 1;
 			}
 		}
-		else if (!context.loadFIMI(cin)){
+		else if (!alg->loadFIMI(cin)){
 			cerr << "Failed to load any data.\n";
 			return 1;
 		}
 		if (argc > 1){
 			out_file.open(argv[1]);
-			context.output(out_file);
+			alg->output(out_file);
 		}
 		if (verbose == 3){
-			cerr << " Context:" << endl;
-			context.printContext();
+			cerr << " alg:" << endl;
+			alg->printContext();
 		}
 		auto beg = chrono::high_resolution_clock::now();
-		context.run();
+		alg->run();
 		auto end = chrono::high_resolution_clock::now();
 		elapsed = end - beg;
 	}

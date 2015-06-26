@@ -1,9 +1,11 @@
 env = Environment()
 # release = 
+
 if env['CXX'] == 'cl':
     env.Append(CCFLAGS="/EHsc")
 elif env['CXX'] == 'g++':
-	env.Append(CCFLAGS="-g -std=c++11 -pthread -Wl,--no-as-needed ")
+	env.Append(CCFLAGS="-g -std=c++11 -pthread")
+	env.Append(LIBS=["pthread"])
 
 env.Program('gen', ['src/gen.cpp'])
 env.Program('jsm', ['src/jsm.cpp'])
