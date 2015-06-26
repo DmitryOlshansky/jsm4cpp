@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 {
 	ios_base::sync_with_stdio(false);
 	string arg;
-	ALGO alg = NONE;
+	unique_ptr<Algorithm> alg;
 	ifstream in_file;
 	ofstream out_file;
 	size_t num_threads = 1;
@@ -53,11 +53,11 @@ int main(int argc, char* argv[])
 			// algorithm 
 			arg = string(argv[i] + 2);
 			alg = fromName(arg);
-			if (alg == NONE){
+			if (!alg){
 				cerr << "No such algorithm " << arg << endl;
 			}
 			if (verbose == 2)
-				cerr << "Using algorithm " << alg << endl;
+				cerr << "Using algorithm " << arg << endl;
 			break;
 		case 'm':
 			// minimal support
@@ -78,14 +78,14 @@ int main(int argc, char* argv[])
 	}
 	argv = argv + i;
 	argc = argc - i;
-	if (alg == NONE){
+	if (!alg){
 		cerr << "Algorithm not specified" << endl;
-		cerr << "Usage ./gen -a<algorithm> [-v<verbosity>] [-L<par-level>] [-t<num-threads>]";
+		cerr << "Usage ./gen -a<algorithm> [-v<verbosity>] [-L<par-level>] [-t<num-threads>]" << endl;
 		return 1;
 	}
 	chrono::duration<double> elapsed;
 	{
-		Context context;
+		CbO context;
 		context.verbose(verbose).threads(num_threads)
 			.parLevel(par_level).minSupport(min_support);
 		if (argc > 0){
@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
 			context.printContext();
 		}
 		auto beg = chrono::high_resolution_clock::now();
-		start(context, alg);
+		context.run();
 		auto end = chrono::high_resolution_clock::now();
 		elapsed = end - beg;
 	}

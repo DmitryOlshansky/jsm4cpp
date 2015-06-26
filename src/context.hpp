@@ -3,7 +3,7 @@
 using namespace std;
 //TODO: add min_support filtering for InClose algorithms!
 /**
-	Context is parametrized by 2 Set implementations.
+	Algorithm is parametrized by 2 Set implementations.
 	One is used for intents and the other for extents.
 */
 
@@ -87,12 +87,12 @@ struct BlockQueue{
 
 mutex output_mtx;
 
-class Context {
+class Algorithm {
 private:
 	enum { QUEUE_SIZE = 16 * 1024 };
 	IntSet* rows; // attributes of objects
-	size_t attributes;
-	size_t objects;
+	size_t attributes_;
+	size_t objects_;
 	size_t props_start; // where attributes end and properties start
 	size_t min_support_; // minimal support for hypotheses
 	size_t* attributesNums; // sorted positions of attributes
@@ -129,19 +129,6 @@ private:
 		int fail_fast; // fast canonical test failures
 		Stats(): total(0), closures(0), fail_canon(0), fail_fast(0){}
 	};
-	Stats stats;
-
-	struct Rec{ // internal struct for enqueing (F)CbO and InClose calls 
-		ExtSet extent;
-		IntSet intent;
-		size_t j;
-		Rec(ExtSet e, IntSet i, size_t y) :extent(e), intent(i), j(y){}
-	};
-	struct InRec{
-		ExtSet extent;
-		size_t j;
-		InRec(ExtSet e, size_t y) :extent(e), j(y){}
-	};
 
 	
 	void printAttributes(IntSet& set, ostream& sink){
@@ -176,7 +163,7 @@ private:
 
 	void putToThread(ExtSet extent, IntSet intent, size_t j, IntSet* M){
 		static int tid = 0;
-		threadBlks[tid].queue.put(extent, intent, j, M, attributes);
+		threadBlks[tid].queue.put(extent, intent, j, M, attributes());
 		tid += 1;
 		if (tid == threads())
 			tid = 0;
@@ -189,58 +176,68 @@ private:
 			tid = 0;
 	}
 
+	virtual void algorithm()=0;
+protected:
+	Stats stats;
 public:
-	Context():rows(), attributes(0), objects(0), min_support_(0), out_(&cout),
+	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0), out_(&cout),
 		verbose_(false), threads_(0), par_level_(0){}
 
-	~Context(){
+	virtual ~Algorithm(){
 		printStats();
 	}
+
 	// Get/set verbose level
 	size_t verbose()const { return verbose_; }
-	Context& verbose(bool verboseVal){ 
+	Algorithm& verbose(bool verboseVal){ 
 		verbose_ = verboseVal;
 		return *this;
 	}
 
 	// Get/set numbers of threads in the pool
 	size_t threads()const{ return threads_; }
-	Context& threads(size_t thrds){
+	Algorithm& threads(size_t thrds){
 		threads_ = thrds;
 		return *this;
 	}
 
 	// Get/set minimal required support for hypothesis/concept
 	size_t minSupport()const{ return min_support_; }
-	Context& minSupport(size_t min_sup){
+	Algorithm& minSupport(size_t min_sup){
 		min_support_ = min_sup;
 		return *this;
 	}
 
 	// Get/set max serial recursion depth
 	size_t parLevel()const{ return par_level_; }
-	Context& parLevel(size_t par_lvl){
+	Algorithm& parLevel(size_t par_lvl){
 		par_level_ = par_lvl;
 		return *this;
 	}
 
 	// Get/set ostream for output
-	Context& output(ostream& sink){
+	Algorithm& output(ostream& sink){
 		out_ = &sink;
 		return *this;
 	}
 
 	// Get/set ostream for diagnostics
-	Context& diagnostic(ostream& sink){
+	Algorithm& diagnostic(ostream& sink){
 		diag_ = &sink;
 		return *this;
 	}
 
 	// Get/set function to filter out set of attributes as proper hypothesis
-	Context& filter(function<bool (IntSet)> filt){
+	Algorithm& filter(function<bool (IntSet)> filt){
 		filter_ = filt;
 		return *this;
 	}
+	// Get dimensions of loaded Algorithm
+	size_t attributes()const{ return attributes_; }
+	size_t objects()const{ return objects_; }
+
+	//
+	IntSet& row(size_t i){ return rows[i]; }
 
 	void toNaturalOrder(IntSet obj){
 		IntSet::Pool slack(1);
@@ -249,6 +246,11 @@ public:
 			r.add(attributesNums[i]);
 		});
 		obj.copy(r);
+	}
+
+	// Run specified algorithm with current parameters and data
+	void run(){
+		algorithm();
 	}
 
 	// print intent and/or extent
@@ -260,8 +262,8 @@ public:
 	}
 
 	void printContext(){
-		for (size_t i = 0; i < objects; i++){
-			printAttributes(rows[i], *diag_);
+		for (size_t i = 0; i < objects(); i++){
+			printAttributes(row(i), *diag_);
 		}
 	}
 
@@ -271,54 +273,54 @@ public:
 		if (values.size() == 0){
 			return false;
 		}
-		objects = values.size();
+		objects_ = values.size();
 		if(total_attributes){
-			attributes = total_attributes + props;
+			attributes_ = total_attributes + props;
 			props_start = total_attributes;
-			if(attributes < max_attribute + 1){
+			if(attributes_ < max_attribute + 1){
 				*diag_ << "Wrong total attributes override.\n";
 				abort();
 			}
 		}
 		else{
-			attributes = max_attribute + 1;
+			attributes_ = max_attribute + 1;
 			props_start = max_attribute + 1; //nowhere
 		}
 		
-		// Count supports and sort context
+		// Count supports and sort Algorithm
 		// May also cut off attributes based on minimal support here and resize accordingly
-		vector<size_t> supps(attributes);
+		vector<size_t> supps(attributes_);
 		fill(supps.begin(), supps.end(), 0);
 
-		attributesNums = new size_t[attributes];
-		for (size_t i = 0; i < attributes; i++){
+		attributesNums = new size_t[attributes_];
+		for (size_t i = 0; i < attributes_; i++){
 			attributesNums[i] = i;
 		}
 
-		for (size_t i = 0; i < objects; i++){
+		for (size_t i = 0; i < objects_; i++){
 			for (auto val : values[i]){
 				supps[val]++;
 			}
 		}
 
 		// attributeNums[0] --> least frequent attribute num
-		sort(attributesNums, attributesNums+attributes, [&](size_t i, size_t j){
+		sort(attributesNums, attributesNums+attributes_, [&](size_t i, size_t j){
 			return supps[i] < supps[j];
 		});
 		
-		revMapping = new size_t[attributes]; // from original to sorted (most frequent --> 0)
-		for (size_t i = 0; i < attributes; i++){
+		revMapping = new size_t[attributes_]; // from original to sorted (most frequent --> 0)
+		for (size_t i = 0; i < attributes_; i++){
 			revMapping[attributesNums[i]] = i;
 		}
 
-		// Setup context with re-ordered attributes
-		ExtSet::setSize(objects);
-		IntSet::setSize(attributes);
-		rows = IntSet::newArray(objects);
-		for (size_t i = 0; i < objects; i++){
-			rows[i].clearAll();
+		// Setup Algorithm with re-ordered attributes
+		ExtSet::setSize(objects_);
+		IntSet::setSize(attributes_);
+		rows = IntSet::newArray(objects_);
+		for (size_t i = 0; i < objects_; i++){
+			row(i).clearAll();
 			for (auto val : values[i]){
-				rows[i].add(revMapping[val]);
+				row(i).add(revMapping[val]);
 			}
 		}
 		return true;
@@ -359,9 +361,9 @@ public:
 	bool closeConcept(ExtSet A, size_t y, ExtSet C, IntSet D){
 		size_t cnt = 0;
 		A.each([&](size_t i){
-			if (rows[i].has(y)){
+			if (row(i).has(y)){
 				C.add(i);
-				D.intersect(rows[i]);
+				D.intersect(row(i));
 				cnt++;
 			}
 		});
@@ -375,7 +377,7 @@ public:
 		bool ret = true;
 		//C.clearAll();
 		A.each([&](size_t i){
-			if (rows[i].has(y)){
+			if (row(i).has(y)){
 				C.add(i);
 			}
 			else
@@ -388,11 +390,29 @@ public:
 	void partialClosure(ExtSet C, size_t y, IntSet D){
 		//D.setAll();
 		C.each([&](size_t i){
-			D.intersect(rows[i], y);
+			D.intersect(row(i), y);
 		});
 		stats.closures++;
 	}
 
+};
+
+// Algorithms that use queue to do recursion layer after layer
+class HybridAlgorithm : virtual public Algorithm {
+public:
+	using Algorithm::Algorithm;
+
+	struct Rec{ // internal struct for enqueing (F)CbO calls 
+		ExtSet extent;
+		IntSet intent;
+		size_t j;
+		Rec(ExtSet e, IntSet i, size_t y) :extent(e), intent(i), j(y){}
+	};
+};
+
+
+class CbO: virtual public Algorithm {
+	using Algorithm::Algorithm;
 	// an interation of Close by One algorithm
 	void cboImpl(ExtSet A, IntSet B, size_t y) {
 		output(A, B);
@@ -400,7 +420,7 @@ public:
 		IntSet::Pool ints(1);
 		ExtSet C = exts.newEmpty();
 		IntSet D = ints.newFull();
-		for (size_t j = y; j < attributes; j++) {
+		for (size_t j = y; j < attributes(); j++) {
 			if (!B.has(j)){
 				// C empty, D full is a precondition
 				if(closeConcept(A, j, C, D)){ // passed min support test
@@ -417,163 +437,32 @@ public:
 		}
 	}
 
-	void cbo(){
+	void algorithm(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newFull();
 		X.each([&](size_t i){
-			Y.intersect(rows[i]);
+			Y.intersect(row(i));
 		});
 		cboImpl(X, Y, 0);
 	}
+};
 
-	void fcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N){
-		output(A, B);
-		if (y == attributes)
-			return;
-		queue<Rec> q;
-		IntSet* M = N + attributes;
-		IntSet::Pool ints(attributes - y);
-		ExtSet::Pool exts(attributes - y);
-		ExtSet C;
-		IntSet D;
-		// note that M[0..y] may point to stale sets which however doesn't matter
-		for (size_t j = y; j < attributes; j++) {
-			M[j] = N[j];
-			if (!B.has(j)){
-				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
-					// C empty, D full is a precondition
-					C = exts.newEmpty();
-					D = ints.newFull();
-					if(closeConcept(A, j, C, D) && B.equal(D, j)){ // equal up to <j
-						q.emplace(C, D, j);
-					}
-					else {
-						stats.fail_canon++;
-						M[j] = D;
-					}
-				}
-				else
-					stats.fail_fast++;
-			}
-		}
-		
-		while (!q.empty()){
-			Rec r = q.front();
-			fcboImpl(r.extent, r.intent, r.j+1, M);
-			q.pop();
-		}
-	}
-
-	void parFcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
-		output(A, B);
-		if (y == attributes)
-			return;
-		queue<Rec> q;
-		IntSet* M = N + attributes;
-		IntSet::Pool ints(attributes - y);
-		ExtSet::Pool exts(attributes - y);
-		ExtSet C;
-		IntSet D;
-		for (size_t j = y; j < attributes; j++) {
-			M[j] = N[j];
-			if (!B.has(j)){
-				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
-					// C empty, D full is a precondition
-					C = exts.newEmpty();
-					D = ints.newFull();
-					if(closeConcept(A, j, C, D)){
-						if (B.equal(D, j)){ // equal up to <j
-							q.emplace(C, D, j);
-						}
-						else {
-							M[j] = D;
-							stats.fail_canon++;
-						}
-					}
-				}
-				else
-					stats.fail_fast++;
-			}
-		}
-		while (!q.empty()){
-			Rec r = q.front();
-			if (rec_level == parLevel()){
-				memset(M, 0, sizeof(IntSet) * y); // clear first y IntSets that are possibly stale 
-				putToThread(r.extent, r.intent, r.j, M);
-			}
-			else{
-				parFcboImpl(r.extent, r.intent, r.j + 1, M, rec_level+1);
-			}
-			q.pop();
-		}
-	}
-
-	void parFcbo(){
-		threadBlks = new ThreadBlock[threads()];
-		for (size_t i = 0; i < threads(); i++){
-			threadBlks[i].implied = new IntSet[max((size_t)2, attributes + 1 - parLevel())*attributes]; 
-			threadBlks[i].M = IntSet::newArray(attributes);
-		}
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newFull();
-		X.each([&](size_t i){
-			Y.intersect(rows[i]);
-		});
-		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(parLevel() + 2)*attributes];
-		parFcboImpl(X, Y, 0, implied, 0);
-		// start of multi-threaded part
-		
-		vector<thread> trds(threads());
-		
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([t, this]{
-				size_t j;
-				Context c = *this; // use separate context to count operations
-				ThreadBlock tb = threadBlks[t];
-				memset(&c.stats, 0, sizeof(c.stats));
-				while (!tb.queue.empty()){
-					tb.queue.fetch(tb.A, tb.B, j, tb.M, attributes);
-					for (size_t i = 0; i < attributes; i++){
-						tb.implied[i] = tb.M[i];
-					}
-					c.fcboImpl(tb.A, tb.B, j + 1, tb.implied);
-				}
-			});
-		}
-		for (auto & t : trds){
-			t.join();
-		}
-	}
-
-	void fcbo(){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newFull();
-		X.each([&](size_t i){
-			Y.intersect(rows[i]);
-		});
-		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(attributes+1)*attributes];
-		fcboImpl(X, Y, 0, implied);
-	}
+class InClose2 : virtual public HybridAlgorithm {
+	using Algorithm::Algorithm;
 
 	void inclose2Impl(ExtSet A, IntSet B, size_t y){
-		if (y == attributes){
+		if (y == attributes()){
 			output(A, B);
 			return;
 		}
 		queue<Rec> q;
-		IntSet::Pool ints(attributes - y);
-		ExtSet::Pool exts(attributes - y);
+		IntSet::Pool ints(attributes() - y);
+		ExtSet::Pool exts(attributes() - y);
 		ExtSet C;
 		IntSet D;
-		for (size_t j = y; j < attributes; j++) {
+		for (size_t j = y; j < attributes(); j++) {
 			if (!B.has(j)){
 				C = exts.newEmpty();
 				if (filterExtent(A, j, C)){ // if A == C
@@ -581,8 +470,8 @@ public:
 				}
 				else{
 					D = ints.newFull();
-					if(IntSet::incCanonical(C, j, rows, B, D)){
-					//if (B.equal(D, j)){ // equal up to <j
+					partialClosure(C, j, D);
+					if (B.equal(D, j)){ // equal up to <j
 						q.emplace(C, D, j);
 					}
 					else
@@ -600,17 +489,25 @@ public:
 		}
 	}
 
+	void algorithm(){
+		ExtSet::Pool exts(1);
+		IntSet::Pool ints(1);
+		ExtSet X = exts.newFull();
+		IntSet Y = ints.newEmpty();
+		inclose2Impl(X, Y, 0);
+	}
+	/*
 	void parInclose2Impl(ExtSet A, IntSet B, size_t y, size_t rec_level){
-		if (y == attributes){
+		if (y == attributes()){
 			output(A, B);
 			return;
 		}
 		queue<Rec> q;
-		IntSet::Pool ints(attributes - y);
-		ExtSet::Pool exts(attributes - y);
+		IntSet::Pool ints(attributes() - y);
+		ExtSet::Pool exts(attributes() - y);
 		ExtSet C;
 		IntSet D;
-		for (size_t j = y; j < attributes; j++) {
+		for (size_t j = y; j < attributes(); j++) {
 			if (!B.has(j)){
 				C = exts.newEmpty();
 				if (filterExtent(A, j, C)){ // if A == C
@@ -640,13 +537,6 @@ public:
 		}
 	}
 
-	void inclose2(){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newEmpty();
-		inclose2Impl(X, Y, 0);
-	}
 
 	void parInclose2(){
 		threadBlks = new ThreadBlock[threads()];
@@ -661,7 +551,7 @@ public:
 		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([t, this]{
 				size_t j;
-				Context c = *this; // use separate context to count operations
+				Algorithm c = *this; // use separate Algorithm to count operations
 				memset(&c.stats, 0, sizeof(c.stats));
 				while (!threadBlks[t].queue.empty()){
 					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j);
@@ -673,19 +563,24 @@ public:
 			t.join();
 		}
 	}
+	*/
+};
+
+class InClose3 : virtual public HybridAlgorithm {
+	using Algorithm::Algorithm;
 
 	void inclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N){
-		if (y == attributes){
+		if (y == attributes()){
 			output(A, B);
 			return;
 		}
 		queue<Rec> q;
-		IntSet::Pool ints(attributes - y);
-		ExtSet::Pool exts(attributes - y);
+		IntSet::Pool ints(attributes() - y);
+		ExtSet::Pool exts(attributes() - y);
 		ExtSet C;
 		IntSet D;
-		IntSet* M = N + attributes;
-		for (size_t j = y; j < attributes; j++) {
+		IntSet* M = N + attributes();
+		for (size_t j = y; j < attributes(); j++) {
 			M[j] = N[j];
 			if (!B.has(j)){
 				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
@@ -719,18 +614,29 @@ public:
 		}
 	}
 
+	void algorithm(){
+		ExtSet::Pool exts(1);
+		IntSet::Pool ints(1);
+		ExtSet X = exts.newFull();
+		IntSet Y = ints.newEmpty();
+		// intents with implied error, see FCbO papper
+		IntSet* implied = new IntSet[(attributes() + 1)*attributes()];
+		inclose3Impl(X, Y, 0, implied);
+	}
+	/*
+
 	void parInclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
-		if (y == attributes){
+		if (y == attributes()){
 			output(A, B);
 			return;
 		}
 		queue<Rec> q;
-		IntSet::Pool ints(attributes - y);
-		ExtSet::Pool exts(attributes - y);
+		IntSet::Pool ints(attributes() - y);
+		ExtSet::Pool exts(attributes() - y);
 		ExtSet C;
 		IntSet D;
-		IntSet* M = N + attributes;
-		for (size_t j = y; j < attributes; j++) {
+		IntSet* M = N + attributes();
+		for (size_t j = y; j < attributes(); j++) {
 			M[j] = N[j];
 			if (!B.has(j)){
 				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
@@ -772,15 +678,15 @@ public:
 	void parInclose3(){
 		threadBlks = new ThreadBlock[threads()];
 		for (size_t i = 0; i < threads(); i++){
-			threadBlks[i].implied = new IntSet[max((size_t)2, attributes + 1 - parLevel())*attributes];
-			threadBlks[i].M = IntSet::newArray(attributes);
+			threadBlks[i].implied = new IntSet[max((size_t)2, attributes() + 1 - parLevel())*attributes()];
+			threadBlks[i].M = IntSet::newArray(attributes());
 		}
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
 		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(parLevel() + 2)*attributes];
+		IntSet* implied = new IntSet[(parLevel() + 2)*attributes()];
 		parInclose3Impl(X, Y, 0, implied, 0);
 		// start of multi-threaded part
 
@@ -789,11 +695,11 @@ public:
 		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([t, this]{
 				size_t j;
-				Context c = *this; // use separate context to count operations
+				Algorithm c = *this; // use separate Algorithm to count operations
 				memset(&c.stats, 0, sizeof(c.stats));
 				while (!threadBlks[t].queue.empty()){
-					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j, threadBlks[t].M, attributes);
-					for (size_t i = 0; i < attributes; i++){
+					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j, threadBlks[t].M, attributes());
+					for (size_t i = 0; i < attributes(); i++){
 						threadBlks[t].implied[i] = threadBlks[t].M[i];
 					}
 					c.inclose3Impl(threadBlks[t].A, threadBlks[t].B, j + 1, threadBlks[t].implied);
@@ -804,72 +710,163 @@ public:
 			t.join();
 		}
 	}
+	*/
+};
 
-	void inclose3(){
+class FCbO : virtual public HybridAlgorithm {
+	using Algorithm::Algorithm;
+
+	void fcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N){
+		output(A, B);
+		if (y == attributes())
+			return;
+		queue<Rec> q;
+		IntSet* M = N + attributes();
+		IntSet::Pool ints(attributes() - y);
+		ExtSet::Pool exts(attributes() - y);
+		ExtSet C;
+		IntSet D;
+		// note that M[0..y] may point to stale sets which however doesn't matter
+		for (size_t j = y; j < attributes(); j++) {
+			M[j] = N[j];
+			if (!B.has(j)){
+				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
+					// C empty, D full is a precondition
+					C = exts.newEmpty();
+					D = ints.newFull();
+					if(closeConcept(A, j, C, D) && B.equal(D, j)){ // equal up to <j
+						q.emplace(C, D, j);
+					}
+					else {
+						stats.fail_canon++;
+						M[j] = D;
+					}
+				}
+				else
+					stats.fail_fast++;
+			}
+		}
+		
+		while (!q.empty()){
+			Rec r = q.front();
+			fcboImpl(r.extent, r.intent, r.j+1, M);
+			q.pop();
+		}
+	}
+
+	void algorithm(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
-		IntSet Y = ints.newEmpty();
+		IntSet Y = ints.newFull();
+		X.each([&](size_t i){
+			Y.intersect(row(i));
+		});
 		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(attributes + 1)*attributes];
-		inclose3Impl(X, Y, 0, implied);
+		IntSet* implied = new IntSet[(attributes()+1)*attributes()];
+		fcboImpl(X, Y, 0, implied);
 	}
 
+/*
+	void parFcboImpl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
+		output(A, B);
+		if (y == attributes())
+			return;
+		queue<Rec> q;
+		IntSet* M = N + attributes();
+		IntSet::Pool ints(attributes() - y);
+		ExtSet::Pool exts(attributes() - y);
+		ExtSet C;
+		IntSet D;
+		for (size_t j = y; j < attributes(); j++) {
+			M[j] = N[j];
+			if (!B.has(j)){
+				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
+					// C empty, D full is a precondition
+					C = exts.newEmpty();
+					D = ints.newFull();
+					if(closeConcept(A, j, C, D)){
+						if (B.equal(D, j)){ // equal up to <j
+							q.emplace(C, D, j);
+						}
+						else {
+							M[j] = D;
+							stats.fail_canon++;
+						}
+					}
+				}
+				else
+					stats.fail_fast++;
+			}
+		}
+		while (!q.empty()){
+			Rec r = q.front();
+			if (rec_level == parLevel()){
+				memset(M, 0, sizeof(IntSet) * y); // clear first y IntSets that are possibly stale 
+				putToThread(r.extent, r.intent, r.j, M);
+			}
+			else{
+				parFcboImpl(r.extent, r.intent, r.j + 1, M, rec_level+1);
+			}
+			q.pop();
+		}
+	}
+
+	void parFcbo(){
+		threadBlks = new ThreadBlock[threads()];
+		for (size_t i = 0; i < threads(); i++){
+			threadBlks[i].implied = new IntSet[max((size_t)2, attributes() + 1 - parLevel())*attributes()]; 
+			threadBlks[i].M = IntSet::newArray(attributes());
+		}
+		ExtSet::Pool exts(1);
+		IntSet::Pool ints(1);
+		ExtSet X = exts.newFull();
+		IntSet Y = ints.newFull();
+		X.each([&](size_t i){
+			Y.intersect(row(i));
+		});
+		// intents with implied error, see FCbO papper
+		IntSet* implied = new IntSet[(parLevel() + 2)*attributes()];
+		parFcboImpl(X, Y, 0, implied, 0);
+		// start of multi-threaded part
+		
+		vector<thread> trds(threads());
+		
+		for (size_t t = 0; t < threads(); t++){
+			trds[t] = thread([t, this]{
+				size_t j;
+				Algorithm c = *this; // use separate Algorithm to count operations
+				ThreadBlock tb = threadBlks[t];
+				memset(&c.stats, 0, sizeof(c.stats));
+				while (!tb.queue.empty()){
+					tb.queue.fetch(tb.A, tb.B, j, tb.M, attributes());
+					for (size_t i = 0; i < attributes(); i++){
+						tb.implied[i] = tb.M[i];
+					}
+					c.fcboImpl(tb.A, tb.B, j + 1, tb.implied);
+				}
+			});
+		}
+		for (auto & t : trds){
+			t.join();
+		}
+	}
+	*/
 };
 
-enum ALGO {
-	NONE,
-	CBO,
-	FCBO, 
-	INCLOSE2,
-	INCLOSE3,
-	PFCBO,
-	PINCLOSE2,
-	PINCLOSE3
-};
-
-ALGO fromName(const string& name){
+unique_ptr<Algorithm> fromName(const string& name){
+	using UP = unique_ptr<Algorithm>;
 	if (name == "cbo"){
-		return CBO;
+		return UP(new CbO);
 	}
-	else if (name == "fcbo"){
-		return FCBO;
+	else if(name == "fcbo"){
+		return UP(new FCbO);
 	}
-	else if (name == "inclose2"){
-		return INCLOSE2;
+	else if(name == "inclose2"){
+		return UP(new InClose2);
 	}
-	else if (name == "inclose3"){
-		return INCLOSE3;
+	else if(name == "inclose3"){
+		return UP(new InClose3);
 	}
-	else if (name == "pfcbo"){
-		return PFCBO;
-	}
-	else if (name == "pinclose2"){
-		return PINCLOSE2;
-	}
-	else if (name == "pinclose3"){
-		return PINCLOSE3;
-	}
-	return NONE;
+	return UP(nullptr);
 }
-
-void start(Context& context, ALGO alg)
-{
-	switch (alg){
-	case CBO:
-		return context.cbo();
-	case FCBO:
-		return context.fcbo();
-	case INCLOSE2:
-		return context.inclose2();
-	case INCLOSE3:
-		return context.inclose3();
-	case PFCBO:
-		return context.parFcbo();
-	case PINCLOSE2:
-		return context.parInclose2();
-	case PINCLOSE3:
-		return context.parInclose3();
-	}
-}
-

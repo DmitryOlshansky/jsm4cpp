@@ -42,7 +42,7 @@ void usage(){
 	exit(1);
 }
 
-bool oppositeProps(Context& context, IntSet set, IntSet minus, size_t attributes, size_t props)
+bool oppositeProps(Algorithm& context, IntSet set, IntSet minus, size_t attributes, size_t props)
 {
 	for(size_t j=attributes; j<attributes+props; j++){
 		size_t p = context.mapAttribute(j);
@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 {
 	ios_base::sync_with_stdio(false);
 	string arg;
-	ALGO alg = NONE;
+	unique_ptr<Algorithm> alg;
 	string plus_in, minus_in;
 	string hyp_out;
 	size_t num_threads = 1;
@@ -75,11 +75,11 @@ int main(int argc, char* argv[])
 			// algorithm 
 			arg = string(argv[i] + 2);
 			alg = fromName(arg);
-			if (alg == NONE){
+			if (!alg){
 				cerr << "No such algorithm " << arg << endl;
 			}
 			if (verbose == 2)
-				cerr << "Using algorithm " << alg << endl;
+				cerr << "Using algorithm " << arg << endl;
 			break;
 		case 's':
 			attributes = atoi(argv[i] + 2);
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
 		cerr << "No properties specified" << endl;
 		usage();
 	}
-	if (alg == NONE){
+	if (!alg){
 		cerr << "Algorithm not specified" << endl;
 		usage();
 	}
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 	}
 	chrono::duration<double> elapsed;
 	{
-		Context context;
+		CbO context;
 		context.verbose(verbose).threads(num_threads)
 			.parLevel(par_level).minSupport(min_support);
 		ifstream plus_stream(plus_in.c_str());
@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
 			});
 		}
 		auto beg = chrono::high_resolution_clock::now();
-		start(context, alg);
+		context.run();
 		auto end = chrono::high_resolution_clock::now();
 		elapsed = end - beg;
 	}
