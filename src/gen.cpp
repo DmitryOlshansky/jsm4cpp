@@ -85,7 +85,9 @@ int main(int argc, char* argv[])
 	}
 	chrono::duration<double> elapsed;
 	{
-		Context context(verbose, num_threads, par_level, min_support);
+		Context context;
+		context.verbose(verbose).threads(num_threads)
+			.parLevel(par_level).minSupport(min_support);
 		if (argc > 0){
 			in_file.open(argv[0]);
 			if (!context.loadFIMI(in_file)){
@@ -99,7 +101,7 @@ int main(int argc, char* argv[])
 		}
 		if (argc > 1){
 			out_file.open(argv[1]);
-			context.setOutput(out_file);
+			context.output(out_file);
 		}
 		if (verbose == 3){
 			cerr << " Context:" << endl;

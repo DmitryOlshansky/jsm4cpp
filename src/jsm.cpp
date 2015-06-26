@@ -155,7 +155,9 @@ int main(int argc, char* argv[])
 	}
 	chrono::duration<double> elapsed;
 	{
-		Context context(verbose, num_threads, par_level, min_support);
+		Context context;
+		context.verbose(verbose).threads(num_threads)
+			.parLevel(par_level).minSupport(min_support);
 		ifstream plus_stream(plus_in.c_str());
 		ifstream minus_stream(minus_in.c_str());
 		ofstream hyp_stream(hyp_out.c_str());
@@ -169,9 +171,9 @@ int main(int argc, char* argv[])
 		context.readFIMI(minus_stream, &minus, &minus_size);
 		cerr << "Minus examples:" << minus_size << endl;
 
-		context.setOutput(hyp_stream);
+		context.output(hyp_stream);
 		if(direct){ // check that hypothesis are not equal some opposing example
-			context.setFilter([&](IntSet set){
+			context.filter([&](IntSet set){
 				for(size_t i=0; i<minus_size; i++){
 					if(set.equal(minus[i], attributes)){
 						// check that all properties are opposite
@@ -186,7 +188,7 @@ int main(int argc, char* argv[])
 		else{
 			IntSet::Pool pool(1);
 			IntSet tmp = pool.newFull();
-			context.setFilter([&](IntSet set){
+			context.filter([&](IntSet set){
 				for(size_t i=0; i<minus_size; i++){
 					tmp.copy(set);
 					tmp.intersect(minus[i], attributes);

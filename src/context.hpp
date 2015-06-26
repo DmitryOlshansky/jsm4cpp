@@ -94,16 +94,17 @@ private:
 	size_t attributes;
 	size_t objects;
 	size_t props_start; // where attributes end and properties start
-	size_t min_support; // minimal support for hypotheses
+	size_t min_support_; // minimal support for hypotheses
 	size_t* attributesNums; // sorted positions of attributes
 	size_t* revMapping; // attributes to sorted positions
-	ostream* out;
+	ostream* out_;
+	ostream* diag_;
 	//
-	size_t verbose;
-	size_t par_level;
-	size_t num_threads;
+	size_t verbose_;
+	size_t par_level_;
+	size_t threads_;
 	
-	function<bool(IntSet)> filter;
+	function<bool(IntSet)> filter_;
 
 	struct ThreadBlock{
 		BlockQueue queue;
@@ -119,7 +120,7 @@ private:
 		}
 	};
 
-	ThreadBlock* threads;
+	ThreadBlock* threadBlks;
 
 	struct Stats{
 		int total;
@@ -143,8 +144,8 @@ private:
 	};
 
 	
-	void printAttributes(IntSet& set, ostream& sink = cerr){
-		if (verbose >= 1){
+	void printAttributes(IntSet& set, ostream& sink){
+		if (verbose() >= 1){
 			stringstream s;
 			bool nonempty = false;
 			set.each([&](size_t i){
@@ -165,9 +166,9 @@ private:
 	}
 
 	void printStats(){
-		if (verbose >= 2){
+		if (verbose() >= 2){
 			lock_guard<mutex> lock(output_mtx);
-			cerr << "Total\tClosure\tCanonical\tFast\n"
+			*diag_ << "Total\tClosure\tCanonical\tFast\n"
 			     << stats.total << '\t'<< stats.closures 
 				 << '\t' << stats.fail_canon << '\t' << stats.fail_fast << endl;
 		}
@@ -175,33 +176,70 @@ private:
 
 	void putToThread(ExtSet extent, IntSet intent, size_t j, IntSet* M){
 		static int tid = 0;
-		threads[tid].queue.put(extent, intent, j, M, attributes);
+		threadBlks[tid].queue.put(extent, intent, j, M, attributes);
 		tid += 1;
-		if (tid == num_threads)
+		if (tid == threads())
 			tid = 0;
 	}
 	void putToThread(ExtSet extent, IntSet intent, size_t j){
 		static int tid = 0;
-		threads[tid].queue.put(extent, intent, j);
+		threadBlks[tid].queue.put(extent, intent, j);
 		tid += 1;
-		if (tid == num_threads)
+		if (tid == threads())
 			tid = 0;
 	}
 
 public:
-	Context(size_t verbose_, size_t threads_, size_t par_level_, size_t min_support_)
-		:rows(), attributes(0), objects(0), min_support(min_support_), out(&cout), 
-		verbose(verbose_), num_threads(threads_), par_level(par_level_){}
+	Context():rows(), attributes(0), objects(0), min_support_(0), out_(&cout),
+		verbose_(false), threads_(0), par_level_(0){}
+
 	~Context(){
 		printStats();
 	}
-
-	void setOutput(ostream& sink){
-		out = &sink;
+	// Get/set verbose level
+	size_t verbose()const { return verbose_; }
+	Context& verbose(bool verboseVal){ 
+		verbose_ = verboseVal;
+		return *this;
 	}
 
-	void setFilter(function<bool (IntSet)> filter_){
-		filter = filter_;
+	// Get/set numbers of threads in the pool
+	size_t threads()const{ return threads_; }
+	Context& threads(size_t thrds){
+		threads_ = thrds;
+		return *this;
+	}
+
+	// Get/set minimal required support for hypothesis/concept
+	size_t minSupport()const{ return min_support_; }
+	Context& minSupport(size_t min_sup){
+		min_support_ = min_sup;
+		return *this;
+	}
+
+	// Get/set max serial recursion depth
+	size_t parLevel()const{ return par_level_; }
+	Context& parLevel(size_t par_lvl){
+		par_level_ = par_lvl;
+		return *this;
+	}
+
+	// Get/set ostream for output
+	Context& output(ostream& sink){
+		out_ = &sink;
+		return *this;
+	}
+
+	// Get/set ostream for diagnostics
+	Context& diagnostic(ostream& sink){
+		diag_ = &sink;
+		return *this;
+	}
+
+	// Get/set function to filter out set of attributes as proper hypothesis
+	Context& filter(function<bool (IntSet)> filt){
+		filter_ = filt;
+		return *this;
 	}
 
 	void toNaturalOrder(IntSet obj){
@@ -215,15 +253,15 @@ public:
 
 	// print intent and/or extent
 	void output(ExtSet A, IntSet B){
-		if(verbose >= 1){
-			if(!filter || filter(B))
-				printAttributes(B, *out);
+		if(verbose() >= 1){
+			if(!filter_ || filter_(B))
+				printAttributes(B, *out_);
 		}
 	}
 
 	void printContext(){
 		for (size_t i = 0; i < objects; i++){
-			printAttributes(rows[i]);
+			printAttributes(rows[i], *diag_);
 		}
 	}
 
@@ -238,7 +276,7 @@ public:
 			attributes = total_attributes + props;
 			props_start = total_attributes;
 			if(attributes < max_attribute + 1){
-				cerr << "Wrong total attributes override.\n";
+				*diag_ << "Wrong total attributes override.\n";
 				abort();
 			}
 		}
@@ -328,7 +366,7 @@ public:
 			}
 		});
 		stats.closures++;
-		return cnt >= min_support;
+		return cnt >= minSupport();
 	}
 
 	// Produce extent having attribute y from A
@@ -461,7 +499,7 @@ public:
 		}
 		while (!q.empty()){
 			Rec r = q.front();
-			if (rec_level == par_level){
+			if (rec_level == parLevel()){
 				memset(M, 0, sizeof(IntSet) * y); // clear first y IntSets that are possibly stale 
 				putToThread(r.extent, r.intent, r.j, M);
 			}
@@ -473,10 +511,10 @@ public:
 	}
 
 	void parFcbo(){
-		threads = new ThreadBlock[num_threads];
-		for (size_t i = 0; i < num_threads; i++){
-			threads[i].implied = new IntSet[max((size_t)2, attributes + 1 - par_level)*attributes]; 
-			threads[i].M = IntSet::newArray(attributes);
+		threadBlks = new ThreadBlock[threads()];
+		for (size_t i = 0; i < threads(); i++){
+			threadBlks[i].implied = new IntSet[max((size_t)2, attributes + 1 - parLevel())*attributes]; 
+			threadBlks[i].M = IntSet::newArray(attributes);
 		}
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
@@ -486,17 +524,17 @@ public:
 			Y.intersect(rows[i]);
 		});
 		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(par_level + 2)*attributes];
+		IntSet* implied = new IntSet[(parLevel() + 2)*attributes];
 		parFcboImpl(X, Y, 0, implied, 0);
 		// start of multi-threaded part
 		
-		vector<thread> trds(num_threads);
+		vector<thread> trds(threads());
 		
-		for (size_t t = 0; t < num_threads; t++){
+		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([t, this]{
 				size_t j;
 				Context c = *this; // use separate context to count operations
-				ThreadBlock tb = threads[t];
+				ThreadBlock tb = threadBlks[t];
 				memset(&c.stats, 0, sizeof(c.stats));
 				while (!tb.queue.empty()){
 					tb.queue.fetch(tb.A, tb.B, j, tb.M, attributes);
@@ -594,7 +632,7 @@ public:
 			Rec r = q.front();
 			r.intent.copy(B);
 			r.intent.add(r.j);
-			if (rec_level == par_level)
+			if (rec_level == parLevel())
 				putToThread(r.extent, r.intent, r.j);
 			else
 				parInclose2Impl(r.extent, r.intent, r.j + 1, rec_level+1);
@@ -611,23 +649,23 @@ public:
 	}
 
 	void parInclose2(){
-		threads = new ThreadBlock[num_threads];
+		threadBlks = new ThreadBlock[threads()];
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
 		parInclose2Impl(X, Y, 0, 0);
 		// start of multi-threaded part
-		vector<thread> trds(num_threads);
+		vector<thread> trds(threads());
 
-		for (size_t t = 0; t < num_threads; t++){
+		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([t, this]{
 				size_t j;
 				Context c = *this; // use separate context to count operations
 				memset(&c.stats, 0, sizeof(c.stats));
-				while (!threads[t].queue.empty()){
-					threads[t].queue.fetch(threads[t].A, threads[t].B, j);
-					c.inclose2Impl(threads[t].A, threads[t].B, j + 1);
+				while (!threadBlks[t].queue.empty()){
+					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j);
+					c.inclose2Impl(threadBlks[t].A, threadBlks[t].B, j + 1);
 				}
 			});
 		}
@@ -721,7 +759,7 @@ public:
 			Rec r = q.front();
 			r.intent.copy(B);
 			r.intent.add(r.j);
-			if (rec_level == par_level){
+			if (rec_level == parLevel()){
 				memset(M, 0, sizeof(IntSet)* y); // clear first y IntSets that are possibly stale 
 				putToThread(r.extent, r.intent, r.j, M);
 			}
@@ -732,33 +770,33 @@ public:
 	}
 
 	void parInclose3(){
-		threads = new ThreadBlock[num_threads];
-		for (size_t i = 0; i < num_threads; i++){
-			threads[i].implied = new IntSet[max((size_t)2, attributes + 1 - par_level)*attributes];
-			threads[i].M = IntSet::newArray(attributes);
+		threadBlks = new ThreadBlock[threads()];
+		for (size_t i = 0; i < threads(); i++){
+			threadBlks[i].implied = new IntSet[max((size_t)2, attributes + 1 - parLevel())*attributes];
+			threadBlks[i].M = IntSet::newArray(attributes);
 		}
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
 		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(par_level + 2)*attributes];
+		IntSet* implied = new IntSet[(parLevel() + 2)*attributes];
 		parInclose3Impl(X, Y, 0, implied, 0);
 		// start of multi-threaded part
 
-		vector<thread> trds(num_threads);
+		vector<thread> trds(threads());
 
-		for (size_t t = 0; t < num_threads; t++){
+		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([t, this]{
 				size_t j;
 				Context c = *this; // use separate context to count operations
 				memset(&c.stats, 0, sizeof(c.stats));
-				while (!threads[t].queue.empty()){
-					threads[t].queue.fetch(threads[t].A, threads[t].B, j, threads[t].M, attributes);
+				while (!threadBlks[t].queue.empty()){
+					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j, threadBlks[t].M, attributes);
 					for (size_t i = 0; i < attributes; i++){
-						threads[t].implied[i] = threads[t].M[i];
+						threadBlks[t].implied[i] = threadBlks[t].M[i];
 					}
-					c.inclose3Impl(threads[t].A, threads[t].B, j + 1, threads[t].implied);
+					c.inclose3Impl(threadBlks[t].A, threadBlks[t].B, j + 1, threadBlks[t].implied);
 				}
 			});
 		}
