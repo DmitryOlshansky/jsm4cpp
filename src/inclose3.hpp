@@ -66,9 +66,12 @@ public:
 	void run(ExtendedState& state){
 		impl(state.extent, state.intent, state.j, state.implied);
 	}
-	/*
+};
 
-	void parInclose3Impl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
+class ParInClose3: virtual public HybridAlgorithm, public ParallelAlgorithm<ExtendedState, InClose3> {
+	using ParallelAlgorithm::ParallelAlgorithm;
+
+	void impl(ExtSet A, IntSet B, size_t y, IntSet* N, size_t rec_level){
 		if (y == attributes()){
 			output(A, B);
 			return;
@@ -110,48 +113,21 @@ public:
 			r.intent.add(r.j);
 			if (rec_level == parLevel()){
 				memset(M, 0, sizeof(IntSet)* y); // clear first y IntSets that are possibly stale 
-				putToThread(r.extent, r.intent, r.j, M);
+				schedule(ExtendedState{r.extent, r.intent, r.j + 1, M, attributes()});
 			}
 			else
-				parInclose3Impl(r.extent, r.intent, r.j + 1, M, rec_level+1);
+				impl(r.extent, r.intent, r.j + 1, M, rec_level + 1);
 			q.pop();
 		}
 	}
 
-	void parInclose3(){
-		threadBlks = new ThreadBlock[threads()];
-		for (size_t i = 0; i < threads(); i++){
-			threadBlks[i].implied = new IntSet[max((size_t)2, attributes() + 1 - parLevel())*attributes()];
-			threadBlks[i].M = IntSet::newArray(attributes());
-		}
+	void serialStep(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
 		ExtSet X = exts.newFull();
 		IntSet Y = ints.newEmpty();
 		// intents with implied error, see FCbO papper
 		IntSet* implied = new IntSet[(parLevel() + 2)*attributes()];
-		parInclose3Impl(X, Y, 0, implied, 0);
-		// start of multi-threaded part
-
-		vector<thread> trds(threads());
-
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([t, this]{
-				size_t j;
-				Algorithm c = *this; // use separate Algorithm to count operations
-				memset(&c.stats, 0, sizeof(c.stats));
-				while (!threadBlks[t].queue.empty()){
-					threadBlks[t].queue.fetch(threadBlks[t].A, threadBlks[t].B, j, threadBlks[t].M, attributes());
-					for (size_t i = 0; i < attributes(); i++){
-						threadBlks[t].implied[i] = threadBlks[t].M[i];
-					}
-					c.inclose3Impl(threadBlks[t].A, threadBlks[t].B, j + 1, threadBlks[t].implied);
-				}
-			});
-		}
-		for (auto & t : trds){
-			t.join();
-		}
+		impl(X, Y, 0, implied, 0);
 	}
-	*/
 };

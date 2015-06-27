@@ -444,6 +444,7 @@ class ParallelAlgorithm : virtual public Algorithm{
 				while (extract(t, state)){
 					sub.run(state);
 				}
+				state.dispose();
 			});
 		}
 		for (auto & t : trds){
@@ -485,6 +486,8 @@ struct SimpleState {
 	void load(BlockQueue& queue){
 		queue.fetch(extent, intent, j);
 	}
+
+	void dispose(){}
 };
 
 // Extended state for algorithms with implied errors array
@@ -507,7 +510,7 @@ struct ExtendedState {
 		queue.fetch(extent, intent, j);
 	}
 
-	~ExtendedState(){
+	void dispose(){
 		delete[] implied;
 	}
 };

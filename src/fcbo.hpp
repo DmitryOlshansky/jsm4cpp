@@ -120,7 +120,7 @@ class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<Extende
 			Y.intersect(row(i));
 		});
 		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(attributes()+1)*attributes()];
+		IntSet* implied = new IntSet[(parLevel()+2)*attributes()];
 		parFcboImpl(X, Y, 0, implied, 0);
 	}
 };
