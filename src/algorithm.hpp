@@ -94,6 +94,131 @@ struct BlockQueue{
 	size_t cur_r;
 };
 
+// Simple I/O buffer with support for atomic portions of data (records).
+// Only complete (committed) records would be ever written to the stream
+class Buffer{
+	char *buf;
+	size_t size; // buffer size
+	size_t cur; // current position
+	size_t committed; // last committed position
+	ostream* out_;
+	shared_ptr<mutex> mut_;
+	Buffer(const Buffer&)=delete;
+public:
+	Buffer(ostream& out, size_t sz): 
+		 buf((char*)malloc(sz)), size(sz), cur(0), committed(0), out_(&out), 
+		 mut_(make_shared<mutex>()){}
+	//
+	Buffer& sync(Buffer& b){
+		mut_ = b.mut_;
+	}
+	// move over and null-ptr the buffer
+	Buffer(Buffer&& b){
+		buf = b.buf;
+		size = b.size;
+		cur = b.cur;
+		committed = b.committed;
+		out_ = b.out_;
+		b.buf = nullptr;
+	}
+	// place c into buffer
+	void put(char c){
+		if(cur == size){
+			if(committed > size * 63 / 64) // buffer should be large enough to hold ~64 records
+				flush();
+			else
+				buf = (char*)realloc(buf, size*3/2);
+		}
+		buf[cur++] = c;
+	}
+	// place len bytes from data
+	void put(char* data, size_t len){
+		if(cur + len > size){
+			if(committed > size * 63 / 64) // buffer should be large enough to hold ~64 records
+				flush();
+			else {
+				while(cur + len > size)
+					size = size * 3 / 2;
+				buf = (char*)realloc(buf, size);
+			}
+		}
+		memcpy(buf+cur, data, len);
+		cur += len;
+	}
+	// change output stream
+	Buffer& output(ostream& os){
+		flush();
+		out_ = &os;
+		return *this;
+	}
+	// get current stream
+	ostream& output(){
+		return *out_;
+	}
+	// resets position to the last commited record
+	Buffer& reset(){
+		cur = committed;
+		return *this;
+	}
+	// ends one "record" - atomic unit of data
+	Buffer& commit(){
+		committed = cur;
+		return *this;
+	}
+	// flushes all commited data
+	Buffer& flush(){
+		if(committed){
+			{
+				lock_guard<mutex> lock(*mut_);
+				out_->write(buf, committed);
+			}
+			// memmove - may overlap
+			memmove(buf, buf+committed, size - committed);
+			cur -= committed;
+			committed = 0;
+		}
+		return *this;
+	}
+	//
+	~Buffer(){
+		if(buf){ //buf is empty after move
+			flush();
+			free(buf);
+		}
+	}
+};
+
+class TabledIntWriter {
+	struct Entry{
+		char len;
+		char s[15];
+	};
+	vector<Entry> table;
+public:
+	TabledIntWriter(size_t max){
+		table.resize(max);
+		for(size_t i=0; i<max; i++){
+			int cnt = sprintf(table[i].s, "%u", (unsigned)i);
+			table[i].len = (char)cnt;
+		}
+	}
+
+	void write(size_t val, Buffer& buf){
+		auto& e = table[val];
+		buf.put(e.s, e.len);
+	}
+};
+
+class SimpleIntWriter {
+public:
+	SimpleIntWriter(){}
+	void write(size_t val, Buffer& buf){
+		char tmp[16];
+		int cnt = sprintf(tmp, "%u", (unsigned) val);
+		buf.put(tmp, cnt);
+	}
+};
+
 
 class Algorithm {
 private:
@@ -104,9 +229,11 @@ private:
 	size_t min_support_; // minimal support for hypotheses
 	size_t* attributesNums; // sorted positions of attributes
 	size_t* revMapping; // attributes to sorted positions
-	ostream* out_;
+	// ostream* out_;
 	ostream* diag_;
+	Buffer buf;
 	shared_ptr<mutex> output_mtx;
+	shared_ptr<TabledIntWriter> writer;
 	//
 	size_t verbose_;
 	size_t par_level_;
@@ -123,23 +250,26 @@ private:
 	};
 
 	
-	void printAttributes(IntSet& set, ostream& sink){
+	void printAttributes(IntSet& set){
 		if (verbose() >= 1){
-			stringstream s;
 			bool nonempty = false;
+			bool need_ws = false;
 			set.each([&](size_t i){
 				size_t attr = attributesNums[i];
+				if(need_ws)
+					buf.put(' ');
+				else
+					need_ws = true;
 				if(attr < props_start)
 					nonempty = true;
-				s << attr << ' ';
+				writer->write(attr, buf);
 			});
-			s << '\n';
-			if(nonempty)
-			{
-				lock_guard<mutex> lock(*output_mtx);
-				string str = s.str();
-				sink.write(str.c_str(), str.size());
+			buf.put('\n');
+			if(nonempty){
+				buf.commit();
 			}
+			else
+				buf.reset();
 		}
 		stats.total++;
 	}
@@ -160,17 +290,24 @@ protected:
 	void output(ExtSet A, IntSet B){
 		if(verbose() >= 1){
 			if(!filter_ || filter_(B))
-				printAttributes(B, *out_);
+				printAttributes(B);
 		}
 	}
 public:
 	Stats stats; // TODO: hackish
 
-	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0), out_(&cout), 
-	diag_(&cerr), verbose_(false), threads_(0), par_level_(0){
-		output_mtx = make_shared<mutex>();
-	}
+	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0),
+		output_mtx(make_shared<mutex>()), 
+		buf(cout, 32*1024), diag_(&cerr), 
+		verbose_(false), threads_(0), par_level_(0){}
 
+	Algorithm(Algorithm&& algo):
+		rows(move(algo.rows)), 
+		attributes_(algo.attributes_), objects_(algo.objects_), 
+		min_support_(algo.min_support_), output_mtx(algo.output_mtx),
+		diag_(algo.diag_), verbose_(algo.verbose_), 
+		threads_(algo.threads_), par_level_(algo.par_level_), 
+		buf(move(algo.buf)), stats(algo.stats){}
 	// clone & reuse most of current algorithm's state but with empty stats
 	template<class Algo>
 	Algo fork()
@@ -180,7 +317,7 @@ public:
 		algo.attributes_ = attributes_;
 		algo.objects_ = objects_;
 		algo.min_support_ = min_support_;
-		algo.out_ =  out_;
+		algo.output(buf.output());
 		algo.diag_ = diag_;
 		algo.verbose_ = verbose_;
 		algo.threads_ = threads_;
@@ -188,7 +325,8 @@ public:
 		algo.props_start = props_start;
 		algo.attributesNums = attributesNums;
 		algo.revMapping = revMapping;
-		algo.output_mtx = output_mtx;
+		algo.buf.sync(buf);
+		algo.writer = writer;
 		return algo;
 	}
 
@@ -226,7 +364,7 @@ public:
 
 	// Get/set ostream for output
 	Algorithm& output(ostream& sink){
-		out_ = &sink;
+		buf.output(sink);
 		return *this;
 	}
 
@@ -260,12 +398,8 @@ public:
 	// Run specified algorithm with current parameters and data
 	void run(){
 		algorithm();
-	}
-
-	void printContext(){
-		for (size_t i = 0; i < objects(); i++){
-			printAttributes(row(i), *diag_);
-		}
+		lock_guard<mutex> lock(*output_mtx);
+		buf.flush();
 	}
 
 	bool loadFIMI(istream& inp, size_t total_attributes=0, size_t props=0){
@@ -324,6 +458,7 @@ public:
 				row(i).add(revMapping[val]);
 			}
 		}
+		writer = make_shared<TabledIntWriter>(attributes());
 		return true;
 	}
 

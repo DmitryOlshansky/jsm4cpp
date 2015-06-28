@@ -101,10 +101,6 @@ int main(int argc, char* argv[])
 			out_file.open(argv[1]);
 			alg->output(out_file);
 		}
-		if (verbose == 3){
-			cerr << " alg:" << endl;
-			alg->printContext();
-		}
 		auto beg = chrono::high_resolution_clock::now();
 		alg->run();
 		auto end = chrono::high_resolution_clock::now();
