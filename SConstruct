@@ -1,10 +1,13 @@
 env = Environment()
-# release = 
 
+AddOption('--release', dest='release', action='store_true', help='release build')
 if env['CXX'] == 'cl':
     env.Append(CCFLAGS="/EHsc")
 elif env['CXX'] == 'g++':
-	env.Append(CCFLAGS="-g -std=c++11 -pthread")
+	if GetOption('release'):
+		env.Append(CCFLAGS="-Ofast -DNDEBUG -std=c++11 -pthread")
+	else:
+		env.Append(CCFLAGS="-g -std=c++11 -pthread")
 	env.Append(LIBS=["pthread"])
 
 env.Program('gen', ['src/gen.cpp'])
