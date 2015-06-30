@@ -11,6 +11,7 @@
 #include <cstring>
 #include <vector>
 #include <ostream>
+#include <memory>
 
 
 using namespace std;
@@ -160,6 +161,7 @@ public:
 	}
 
 	BitVec& operator=(BitVec&& v){
+		BitVec::~BitVec();
 		data = v.data;
 		v.data = nullptr;
 		return *this;
@@ -343,31 +345,62 @@ class CompressedSet{
 		Set set;
 		Set* link;
 	};
-	bool is_link;
+	// empty sets dominate, so cache emptiness
+	// need not to worry about linked "owner" as we never change a layer
+	// above the current one (~ linked set is effectively immutable )
+	bool is_link, is_null;
 public:
-	CompressedSet():set(),is_link(false){}
-	CompressedSet(Set&& val):set(val),is_link(false){}
+	CompressedSet():set(),is_link(false),is_null(true){}
+	CompressedSet(Set&& val):set(val),is_link(false),is_null(val.null()){}
 	explicit CompressedSet(Set* ptr):link(ptr), is_link(true){}
 	// link to the other compressed set
-	CompressedSet& operator=(CompressedSet& set){
-		if(set.is_link)
-			link = set.link;
-		else
-			link = &set.set;
+	CompressedSet& operator=(CompressedSet& cs){
+		if(!is_link) // destroy our set if stand-alone
+			set.~Set();
+		if(cs.is_link){
+			link = cs.link;
+		}
+		else{
+			link = &cs.set;
+		}
+		is_null = cs.is_null;
 		is_link = true;
+
 		return *this;
 	}
-	bool null(){ return is_link ? link->null() : set.null(); }
+	bool null(){ return is_null; }
 	CompressedSet& operator=(Set&& val){
-		set = move(val);
+		if(!is_link){
+			set.~Set();
+		}
+		new (&set) Set(move(val));
 		is_link = false;
+		is_null = set.null();
 		return *this;
 	}
 	Set* operator ->(){ return is_link ? link : &set; }
 	~CompressedSet(){
 		if(!is_link){
 			set.~Set();
-			link = nullptr;
 		}
 	}
 };
+
+/* //TODO: bogus
+template<class Set>
+class CompressedSet2{
+	shared_ptr<Set> set;
+public:
+	CompressedSet2():set(){
+		cerr<<"Constructed!"<<endl;
+	}
+	bool null(){ return !set || set->null(); }
+	CompressedSet2 operator=(Set&& val){
+		set = make_shared<Set>(move(val));
+	}
+	CompressedSet2& operator=(CompressedSet2& cs){
+		set = cs.set;
+		return *this;
+	}
+	Set* operator ->(){ return set.get(); }
+};*/

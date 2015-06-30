@@ -20,7 +20,7 @@ class FCbO : virtual public HybridAlgorithm {
 		for (size_t j = y; j < attributes(); j++) {
 			M[j] = N[j];
 			if (!B.has(j)){
-				if (N[j]->null() || N[j]->subsetOf(B, j)){ // subset of (considering attributes < j)
+				if (N[j].null() || N[j]->subsetOf(B, j)){ // subset of (considering attributes < j)
 					// C empty, D full is a precondition
 					toEmpty(C);
 					toFull(D);
@@ -53,6 +53,7 @@ class FCbO : virtual public HybridAlgorithm {
 		// intents with implied error, see FCbO papper
 		CompIntSet* implied = new CompIntSet[(attributes()+1)*attributes()];
 		impl(X, Y, 0, implied);
+		delete[] implied; // may avoid freeing this in one-shot program
 	}
 public:
 	void run(ExtendedState& state){
