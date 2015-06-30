@@ -6,8 +6,9 @@
 
 #include "algorithm.hpp"
 #include "cbo.hpp"
-	/*
+	
 #include "fcbo.hpp"
+	/*
 #include "inclose2.hpp"
 #include "inclose3.hpp"
 */
@@ -26,8 +27,8 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 	static vector<Entry> table = {
 	// serial
 		{ "cbo", &make<CbO> },
-	/*	{ "fcbo", &make<FCbO> },
-		{ "inclose2", &make<InClose2> },
+		{ "fcbo", &make<FCbO> },
+	/*	{ "inclose2", &make<InClose2> },
 		{ "inclose3", &make<InClose3> },
 	// parallel
 		{ "pcbo", &make<ParCbO> },

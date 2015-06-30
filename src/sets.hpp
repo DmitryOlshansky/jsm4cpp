@@ -162,6 +162,7 @@ public:
 	BitVec& operator=(BitVec&& v){
 		data = v.data;
 		v.data = nullptr;
+		return *this;
 	}
 
 	bool null() const {
@@ -311,3 +312,62 @@ ostream& printSet(Set& set, ostream& os){
 	});
 	return os;
 }
+
+// Helper - set to zeros, optionally allocating data if it was null
+template<class Set>
+Set& toEmpty(Set& s){
+	if(s.null())
+		s = Set::newEmpty();
+	else
+		s.clearAll();
+	return s;
+}
+
+// Helper - set to ones, optionally allocating data if it was null
+template<class Set>
+Set& toFull(Set& s){
+	if(s.null())
+		s = Set::newFull();
+	else
+		s.setAll();
+	return s;
+}
+
+
+// Compressed set is either a reference to some existing set
+// or a set itself; this transparently reuses existing sets w/o copying
+// while keeping the ability to replace it later with proper set.
+template<class Set>
+class CompressedSet{
+	union{
+		Set set;
+		Set* link;
+	};
+	bool is_link;
+public:
+	CompressedSet():set(),is_link(false){}
+	CompressedSet(Set&& val):set(val),is_link(false){}
+	explicit CompressedSet(Set* ptr):link(ptr), is_link(true){}
+	// link to the other compressed set
+	CompressedSet& operator=(CompressedSet& set){
+		if(set.is_link)
+			link = set.link;
+		else
+			link = &set.set;
+		is_link = true;
+		return *this;
+	}
+	bool null(){ return is_link ? link->null() : set.null(); }
+	CompressedSet& operator=(Set&& val){
+		set = move(val);
+		is_link = false;
+		return *this;
+	}
+	Set* operator ->(){ return is_link ? link : &set; }
+	~CompressedSet(){
+		if(!is_link){
+			set.~Set();
+			link = nullptr;
+		}
+	}
+};

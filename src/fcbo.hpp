@@ -8,30 +8,28 @@
 class FCbO : virtual public HybridAlgorithm {
 	using HybridAlgorithm::HybridAlgorithm;
 
-	void impl(ExtSet A, IntSet B, size_t y, IntSet* N){
+	void impl(ExtSet& A, IntSet& B, size_t y, CompIntSet* N){
 		output(A, B);
 		if (y == attributes())
 			return;
 		queue<Rec> q;
-		IntSet* M = N + attributes();
-		IntSet::Pool ints(attributes() - y);
-		ExtSet::Pool exts(attributes() - y);
+		CompIntSet* M = N + attributes();
 		ExtSet C;
 		IntSet D;
 		// note that M[0..y] may point to stale sets which however doesn't matter
 		for (size_t j = y; j < attributes(); j++) {
 			M[j] = N[j];
 			if (!B.has(j)){
-				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
+				if (N[j]->null() || N[j]->subsetOf(B, j)){ // subset of (considering attributes < j)
 					// C empty, D full is a precondition
-					C = exts.newEmpty();
-					D = ints.newFull();
+					toEmpty(C);
+					toFull(D);
 					if(closeConcept(A, j, C, D) && B.equal(D, j)){ // equal up to <j
-						q.emplace(C, D, j);
+						q.emplace(move(C), move(D), j); //lose both C&D
 					}
 					else {
 						stats.fail_canon++;
-						M[j] = D;
+						M[j] = move(D); // lose D
 					}
 				}
 				else
@@ -40,22 +38,20 @@ class FCbO : virtual public HybridAlgorithm {
 		}
 		
 		while (!q.empty()){
-			Rec r = q.front();
+			Rec r = move(q.front());
 			impl(r.extent, r.intent, r.j+1, M);
 			q.pop();
 		}
 	}
 
 	void algorithm(){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newFull();
+		ExtSet X = ExtSet::newFull();
+		IntSet Y = IntSet::newFull();
 		X.each([&](size_t i){
 			Y.intersect(row(i));
 		});
 		// intents with implied error, see FCbO papper
-		IntSet* implied = new IntSet[(attributes()+1)*attributes()];
+		CompIntSet* implied = new CompIntSet[(attributes()+1)*attributes()];
 		impl(X, Y, 0, implied);
 	}
 public:
@@ -63,7 +59,7 @@ public:
 		impl(state.extent, state.intent, state.j, state.implied);
 	}
 };
-
+/*
 class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<ExtendedState, FCbO>{
 	using ParallelAlgorithm::ParallelAlgorithm;
 
@@ -82,8 +78,8 @@ class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<Extende
 			if (!B.has(j)){
 				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
 					// C empty, D full is a precondition
-					C = exts.newEmpty();
-					D = ints.newFull();
+					C = ExtSet::newEmpty();
+					D = IntSet::newFull();
 					if(closeConcept(A, j, C, D)){
 						if (B.equal(D, j)){ // equal up to <j
 							q.emplace(C, D, j);
@@ -114,8 +110,8 @@ class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<Extende
 	void serialStep(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newFull();
+		ExtSet X = ExtSet::newFull();
+		IntSet Y = IntSet::newFull();
 		X.each([&](size_t i){
 			Y.intersect(row(i));
 		});
@@ -124,3 +120,4 @@ class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<Extende
 		parFcboImpl(X, Y, 0, implied, 0);
 	}
 };
+*/

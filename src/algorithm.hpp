@@ -19,7 +19,7 @@ using namespace std;
 
 using ExtSet = BitVec<0>;
 using IntSet = BitVec<1>;
-
+using CompIntSet = CompressedSet<IntSet>;
 
 // Sadly fixed BitVectors need separate statics declaration per instance
 template<> size_t BitVec<0>::words = 0;
@@ -630,21 +630,14 @@ struct ExtendedState {
 	ExtSet extent;
 	IntSet intent;
 	size_t j; // attribute #
-	IntSet* implied; // must be inited
+	CompIntSet* implied; // must be inited
 	size_t attributes;
 
 	void alloc(Algorithm& algo){
-		implied = new IntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
-	}
-/*
-	void save(BlockQueue& queue){
-		queue.put(extent, intent, j);
+		implied = 
+			new CompIntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
 	}
 
-	void load(BlockQueue& queue){
-		queue.fetch(extent, intent, j);
-	}
-*/
 	void dispose(){
 		delete[] implied;
 	}

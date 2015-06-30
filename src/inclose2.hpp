@@ -20,12 +20,12 @@ class InClose2 : virtual public HybridAlgorithm {
 		IntSet D;
 		for (size_t j = y; j < attributes(); j++) {
 			if (!B.has(j)){
-				C = exts.newEmpty();
+				C = ExtSet::newEmpty();
 				if (filterExtent(A, j, C)){ // if A == C
 					B.add(j);
 				}
 				else{
-					D = ints.newFull();
+					D = IntSet::newFull();
 					partialClosure(C, j, D);
 					if (B.equal(D, j)){ // equal up to <j
 						q.emplace(C, D, j);
@@ -48,8 +48,8 @@ class InClose2 : virtual public HybridAlgorithm {
 	void algorithm(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newEmpty();
+		ExtSet X = ExtSet::newFull();
+		IntSet Y = IntSet::newEmpty();
 		impl(X, Y, 0);
 	}
 public:
@@ -73,12 +73,12 @@ class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<Sim
 		IntSet D;
 		for (size_t j = y; j < attributes(); j++) {
 			if (!B.has(j)){
-				C = exts.newEmpty();
+				C = ExtSet::newEmpty();
 				if (filterExtent(A, j, C)){ // if A == C
 					B.add(j);
 				}
 				else{
-					D = ints.newFull();
+					D = IntSet::newFull();
 					partialClosure(C, j, D);
 					if (B.equal(D, j)){ // equal up to <j
 						q.emplace(C, D, j);
@@ -104,8 +104,8 @@ class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<Sim
 	void serialStep(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newEmpty();
+		ExtSet X = ExtSet::newFull();
+		IntSet Y = IntSet::newEmpty();
 		impl(X, Y, 0, 0);
 	}
 };

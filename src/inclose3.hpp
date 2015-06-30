@@ -23,12 +23,12 @@ class InClose3 : virtual public HybridAlgorithm {
 			M[j] = N[j];
 			if (!B.has(j)){
 				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
-					C = exts.newEmpty();
+					C = ExtSet::newEmpty();
 					if (filterExtent(A, j, C)){ // if A == C
 						B.add(j);
 					}
 					else{
-						D = ints.newFull();
+						D = IntSet::newFull();
 						partialClosure(C, j, D);
 						if (B.equal(D, j)){ // equal up to <j
 							q.emplace(C, D, j);
@@ -56,8 +56,8 @@ class InClose3 : virtual public HybridAlgorithm {
 	void algorithm(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newEmpty();
+		ExtSet X = ExtSet::newFull();
+		IntSet Y = IntSet::newEmpty();
 		// intents with implied error, see FCbO papper
 		IntSet* implied = new IntSet[(attributes() + 1)*attributes()];
 		impl(X, Y, 0, implied);
@@ -86,12 +86,12 @@ class ParInClose3: virtual public HybridAlgorithm, public ParallelAlgorithm<Exte
 			M[j] = N[j];
 			if (!B.has(j)){
 				if (N[j].empty() || N[j].subsetOf(B, j)){ // subset of (considering attributes < j)
-					C = exts.newEmpty();
+					C = ExtSet::newEmpty();
 					if (filterExtent(A, j, C)){ // if A == C
 						B.add(j);
 					}
 					else{
-						D = ints.newFull();
+						D = IntSet::newFull();
 						partialClosure(C, j, D);
 						if (B.equal(D, j)){ // equal up to <j
 							q.emplace(C, D, j);
@@ -124,8 +124,8 @@ class ParInClose3: virtual public HybridAlgorithm, public ParallelAlgorithm<Exte
 	void serialStep(){
 		ExtSet::Pool exts(1);
 		IntSet::Pool ints(1);
-		ExtSet X = exts.newFull();
-		IntSet Y = ints.newEmpty();
+		ExtSet X = ExtSet::newFull();
+		IntSet Y = IntSet::newEmpty();
 		// intents with implied error, see FCbO papper
 		IntSet* implied = new IntSet[(parLevel() + 2)*attributes()];
 		impl(X, Y, 0, implied, 0);
