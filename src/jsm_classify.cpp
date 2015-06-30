@@ -28,25 +28,24 @@ void usage(){
 	exit(1);
 }
 
-Set toSet(const vector<int>& vec, Set::Pool& pool){
-	Set ret = pool.newEmpty();
+Set toSet(const vector<int>& vec){
+	Set ret = Set::newEmpty();
 	for_each(vec.begin(), vec.end(), [&ret](int a){
 		ret.add(a);
 	});
 	return ret;
 }
 
-vector<Set> toSets(const vector<vector<int>>& vec, Set::Pool& pool){
+vector<Set> toSets(const vector<vector<int>>& vec){
 	vector<Set> ret(vec.size());
 	for(size_t i=0; i<vec.size(); i++)
-		ret[i] = toSet(vec[i], pool);
+		ret[i] = toSet(vec[i]);
 	return ret;
 }
 
-vector<size_t> allIncludes(Set example, vector<Set>& set){
+vector<size_t> allIncludes(Set& example, vector<Set>& set){
 	vector<size_t> found;
-	Set::Pool temp(1);
-	Set val = temp.newEmpty();
+	Set val = Set::newEmpty();
 	for(size_t i=0; i<set.size(); i++){
 		val.copy(example);
 		val.intersect(set[i]);
@@ -57,7 +56,7 @@ vector<size_t> allIncludes(Set example, vector<Set>& set){
 	return found;
 }
 
-void mergeAll(vector<Set>& which, const vector<size_t> idx, Set dest){
+void mergeAll(vector<Set>& which, const vector<size_t> idx, Set& dest){
 	for(auto i : idx){
 		dest.merge(which[i]);
 	}
@@ -74,7 +73,7 @@ void writeArray(const vector<size_t>& nums, ostream& output){
 	output<< "]";
 }
 
-void joinProps(Set set, Set max_plus, Set max_minus, size_t attrs, size_t props){
+void joinProps(Set& set, Set& max_plus, Set& max_minus, size_t attrs, size_t props){
 	max_plus.merge(max_minus); //сливаем плюс и минус
 	// теперь 11 обозначает конфликт, переводим в 00
 	for(size_t i=attrs; i<attrs+props; i+=2){
@@ -87,7 +86,7 @@ void joinProps(Set set, Set max_plus, Set max_minus, size_t attrs, size_t props)
 }
 
 // Вывести свойства как (+)*(?)*(-)* строку
-void writeActivity(Set set, size_t attrs, size_t props, ostream& output){
+void writeActivity(Set& set, size_t attrs, size_t props, ostream& output){
 	// свойства идут парами
 	for(size_t i=attrs; i<attrs+props; i+=2){
 		bool a1 = set.has(i), a2 = set.has(i+1);
@@ -106,9 +105,8 @@ void writeActivity(Set set, size_t attrs, size_t props, ostream& output){
 void classify(size_t attrs, size_t props, vector<Set>& plus, 
 vector<Set>& minus, vector<Set>& tau, ostream& output){
 	output << "[\n";
-	Set::Pool pool(2);
-	auto max_plus = pool.newEmpty();
-	auto max_minus = pool.newEmpty();
+	auto max_plus = Set::newEmpty();
+	auto max_minus = Set::newEmpty();
 	for(size_t i=0; i<tau.size(); i++){
 		auto& t = tau[i];
 		auto pluses = allIncludes(t, plus);
@@ -198,10 +196,9 @@ int main(int argc, char* argv[]){
 	auto ft = readFIMI(tau_in, nullptr);
 
 	Set::setSize(attrs+props);
-	Set::Pool storage(fp.size()+fm.size()+ft.size());
-	auto plus_sets = toSets(fp, storage);
-	auto minus_sets = toSets(fm, storage);
-	auto tau_sets = toSets(ft, storage);
+	auto plus_sets = toSets(fp);
+	auto minus_sets = toSets(fm);
+	auto tau_sets = toSets(ft);
 	cerr << "PLUS: " << plus_sets.size() << endl;
 	cerr << "MINUS: "<<minus_sets.size() << endl;
 	cerr << "TAU: "<< tau_sets.size() << endl;

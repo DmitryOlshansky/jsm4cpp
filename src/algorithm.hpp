@@ -27,6 +27,10 @@ template<> size_t BitVec<0>::length = 0;
 template<> size_t BitVec<1>::words = 0;
 template<> size_t BitVec<1>::length = 0;
 
+struct BlockQueue{
+	BlockQueue(size_t initial){}
+};
+/*
 // A per thread queue that contains flattened copy of required data
 struct BlockQueue{
 	BlockQueue(size_t initial){
@@ -93,7 +97,7 @@ struct BlockQueue{
 	size_t cur_w, size;
 	size_t cur_r;
 };
-
+*/
 // Simple I/O buffer with support for atomic portions of data (records).
 // Only complete (committed) records would be ever written to the stream
 class Buffer{
@@ -239,7 +243,7 @@ private:
 	size_t par_level_;
 	size_t threads_;
 	
-	function<bool(IntSet)> filter_;
+	function<bool(IntSet&)> filter_;
 
 	struct Stats{
 		int total;
@@ -248,7 +252,7 @@ private:
 		int fail_fast; // fast canonical test failures
 		Stats(): total(0), closures(0), fail_canon(0), fail_fast(0){}
 	};
-
+protected:
 	
 	void printAttributes(IntSet& set){
 		if (verbose() >= 1){
@@ -284,10 +288,9 @@ private:
 	}
 
 	virtual void algorithm()=0;
-protected:
-	
+
 	// print intent and/or extent
-	void output(ExtSet A, IntSet B){
+	void output(ExtSet& A, IntSet& B){
 		if(verbose() >= 1){
 			if(!filter_ || filter_(B))
 				printAttributes(B);
@@ -375,7 +378,7 @@ public:
 	}
 
 	// Get/set function to filter out set of attributes as proper hypothesis
-	Algorithm& filter(function<bool (IntSet)> filt){
+	Algorithm& filter(function<bool (IntSet&)> filt){
 		filter_ = filt;
 		return *this;
 	}
@@ -386,9 +389,8 @@ public:
 	//
 	IntSet& row(size_t i){ return rows[i]; }
 
-	void toNaturalOrder(IntSet obj){
-		IntSet::Pool slack(1);
-		auto r = slack.newEmpty();
+	void toNaturalOrder(IntSet& obj){
+		IntSet r = IntSet::newEmpty();
 		obj.each([&](size_t i){
 			r.add(attributesNums[i]);
 		});
@@ -489,12 +491,12 @@ public:
 	}
 
 	/**
-		Inputs: A - extent, B - intent, y - new attribute
+		Inputs: A - extent, y - new attribute
 		C - empty, D - full
 		Output: C = A intersect closure({j}); D = closure of C
 		Returns: boolean - true if extent passes the minimal support
 	*/
-	bool closeConcept(ExtSet A, size_t y, ExtSet C, IntSet D){
+	bool closeConcept(ExtSet& A, size_t y, ExtSet& C, IntSet& D){
 		size_t cnt = 0;
 		A.each([&](size_t i){
 			if (row(i).has(y)){
@@ -542,7 +544,7 @@ public:
 		ExtSet extent;
 		IntSet intent;
 		size_t j;
-		Rec(ExtSet e, IntSet i, size_t y) :extent(e), intent(i), j(y){}
+		Rec(ExtSet e, IntSet i, size_t y) :extent(move(e)), intent(move(i)), j(y){}
 	};
 };
 
@@ -570,10 +572,8 @@ class ParallelAlgorithm : virtual public Algorithm{
 		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([this, t]{
 				State state;
-				ExtSet::Pool exts(1);
-				IntSet::Pool ints(1);
-				state.extent = exts.newEmpty();
-				state.intent = ints.newEmpty();
+				state.extent = ExtSet::newEmpty();
+				state.intent = IntSet::newEmpty();
 				state.alloc(*this);
 				auto sub = fork<BaseAlgo>();
 				while (extract(t, state)){
@@ -613,7 +613,7 @@ struct SimpleState {
 	size_t j; // attribute #
 
 	void alloc(Algorithm& algo){}
-
+/*
 	void save(BlockQueue& queue){
 		queue.put(extent, intent, j);
 	}
@@ -621,7 +621,7 @@ struct SimpleState {
 	void load(BlockQueue& queue){
 		queue.fetch(extent, intent, j);
 	}
-
+*/
 	void dispose(){}
 };
 
@@ -636,7 +636,7 @@ struct ExtendedState {
 	void alloc(Algorithm& algo){
 		implied = new IntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
 	}
-
+/*
 	void save(BlockQueue& queue){
 		queue.put(extent, intent, j);
 	}
@@ -644,7 +644,7 @@ struct ExtendedState {
 	void load(BlockQueue& queue){
 		queue.fetch(extent, intent, j);
 	}
-
+*/
 	void dispose(){
 		delete[] implied;
 	}

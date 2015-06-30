@@ -6,10 +6,11 @@
 
 #include "algorithm.hpp"
 #include "cbo.hpp"
+	/*
 #include "fcbo.hpp"
 #include "inclose2.hpp"
 #include "inclose3.hpp"
-
+*/
 template<class Algo>
 unique_ptr<Algorithm> make(){
 	return unique_ptr<Algorithm>(new Algo);
@@ -25,7 +26,7 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 	static vector<Entry> table = {
 	// serial
 		{ "cbo", &make<CbO> },
-		{ "fcbo", &make<FCbO> },
+	/*	{ "fcbo", &make<FCbO> },
 		{ "inclose2", &make<InClose2> },
 		{ "inclose3", &make<InClose3> },
 	// parallel
@@ -33,6 +34,7 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 		{ "pfcbo", &make<ParInClose2> },
 		{ "pinclose2", &make<ParInClose2> },
 		{ "pinclose3", &make<ParInClose3> }
+	*/
 	};
 	for(auto& e : table){
 		if(name == e.name)

@@ -41,7 +41,7 @@ void usage(){
 	exit(1);
 }
 
-bool oppositeProps(Algorithm& alg, IntSet set, IntSet minus, size_t attributes, size_t props)
+bool oppositeProps(Algorithm& alg, IntSet& set, IntSet& minus, size_t attributes, size_t props)
 {
 	for(size_t j=attributes; j<attributes+props; j++){
 		size_t p = alg.mapAttribute(j);
@@ -171,7 +171,7 @@ int main(int argc, char* argv[])
 
 		alg->output(hyp_stream);
 		if(direct){ // check that hypothesis are not equal some opposing example
-			alg->filter([&](IntSet set){
+			alg->filter([&](IntSet& set){
 				for(size_t i=0; i<minus_size; i++){
 					if(set.equal(minus[i], attributes)){
 						// check that all properties are opposite
@@ -184,9 +184,8 @@ int main(int argc, char* argv[])
 			});
 		}
 		else{
-			IntSet::Pool pool(1);
-			IntSet tmp = pool.newFull();
-			alg->filter([&](IntSet set){
+			IntSet tmp = IntSet::newFull();
+			alg->filter([&](IntSet& set){
 				for(size_t i=0; i<minus_size; i++){
 					tmp.copy(set);
 					tmp.intersect(minus[i], attributes);

@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <ostream>
 
 
 using namespace std;
@@ -118,63 +119,57 @@ size_t LinearSet::total;
 */
 template<int tag>
 class BitVec{
-	enum { BYTES = sizeof(size_t), BITS = BYTES * 8 };
+	enum { WORD_SIZE = sizeof(size_t), BITS = WORD_SIZE * 8 };
 	static size_t length;
 	static size_t words;
 	size_t* data;
+	//
+	explicit BitVec(size_t* ptr) : data(ptr){}
+	//
 public:
 	// allocate array of sets, permanently
 	static BitVec* newArray(size_t n){
 		BitVec* ptrs = new BitVec[n];
-		size_t* p = (size_t*)malloc(n*words*BYTES);
+		size_t* p = (size_t*)calloc(n*words, WORD_SIZE);
 		for (size_t i = 0; i < n; i++){
 			ptrs[i] = BitVec(p + words*i);
 		}
 		return ptrs;
 	}
-	// Fixed sized stack allocator for BitSet.
-	// Frees all memory at once on scope exit.
-	struct Pool{
-		Pool(size_t n) : ptr((size_t*)malloc(n*words*BYTES)), cur(0), size(n*words){}
-		BitVec newEmpty(){
-			BitVec bv(ptr + cur);
-			bv.clearAll();
-			cur += words;
-			assert(cur <= size);
-			return bv;
-		}
-		BitVec newFull(){
-			BitVec bv(ptr + cur);
-			bv.setAll();
-			cur += words;
-			assert(cur <= size);
-			return bv;
-		}
-		~Pool(){
-			free(ptr);
-		}
-	private:
-		size_t* ptr;
-		size_t cur, size;
-	};
+	//
+	static BitVec newEmpty(){
+		return BitVec((size_t*)calloc(words, WORD_SIZE));
+	}
+	//
+	static BitVec newFull(){
+		BitVec vec((size_t*)malloc(words*sizeof(size_t)));
+		vec.setAll();
+		return vec;
+	}
+	//
 	static void setSize(size_t total){
 		length = total;
 		words = (length + BITS - 1) / BITS;
 	}
 
 	BitVec():data(nullptr){}
-	explicit BitVec(size_t* ptr) : data(ptr){}
-	BitVec& operator=(const BitVec& v){
+
+	BitVec(BitVec&& v){
 		data = v.data;
-		return *this;
+		v.data = nullptr;
 	}
 
-	bool empty(){
+	BitVec& operator=(BitVec&& v){
+		data = v.data;
+		v.data = nullptr;
+	}
+
+	bool null() const {
 		return data == nullptr;
 	}
 
 	void clearAll(){
-		memset(data, 0, words*BYTES);
+		memset(data, 0, words*WORD_SIZE);
 	}
 
 	size_t hasMoreThen(size_t items){
@@ -215,7 +210,7 @@ public:
 
 	// copy other set over this one
 	void copy(BitVec& vec){
-		memcpy(data, vec.data, words*BYTES);
+		memcpy(data, vec.data, words*WORD_SIZE);
 	}
 
 	// 
@@ -237,7 +232,7 @@ public:
 
 	//
 	bool equal(BitVec& vec){
-		return memcmp(&data[0], &vec.data[0], words*BYTES) == 0;
+		return memcmp(&data[0], &vec.data[0], words*WORD_SIZE) == 0;
 	}
 
 	// set number j
@@ -298,47 +293,21 @@ public:
 		return true;
 	}
 
-	// operations to save in plain memory chunks
-	static size_t raw_size(){
-		return words*BYTES;
-	}
-
-	void store(void* ptr ){
-		if (!data)
-			memset(ptr, 0, words*BYTES);
-		else
-			memcpy(ptr, data, words*BYTES);
-	}
-
-	void load(void* ptr){
-		memcpy(data, ptr, words*BYTES);
-	}
-
-	template<class Set>
-	static bool incCanonical(Set objs, size_t j, BitVec* rows, BitVec B, BitVec D)
-	{
-		size_t end = j/BITS;
-		for(size_t i=0; i<end; i++){
-			size_t invb = ~B.data[i];
-			size_t d = MASK;
-			objs.each([&d, rows, i](size_t k){
-				d &= rows[k].data[i];
-			});
-			if(d & invb)
-				return false;
-			D.data[i] = d;
-		}
-		size_t tail = j % BITS;
-		if (tail){
-			size_t invb = ~B.data[end];
-			size_t d = (BIT << tail) - 1;
-			objs.each([&d, rows, end](size_t k){
-				d &= rows[k].data[end];
-			});
-			D.data[end] = d;
-			if(d & invb)
-				return false;
-		}
-		return true;
+	~BitVec(){
+		free(data);// free is safe on nullptr
 	}
 };
+
+
+template<class Set>
+ostream& printSet(Set& set, ostream& os){
+	bool first = true;
+	set.each([&](size_t v){
+		if (first)
+			first = false;
+		else
+			os<< ' ';
+		os<<v;
+	});
+	return os;
+}
