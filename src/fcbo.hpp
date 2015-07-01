@@ -43,7 +43,7 @@ class FCbO : virtual public HybridAlgorithm {
 			q.pop();
 		}
 	}
-
+protected:
 	void algorithm(){
 		ExtSet X = ExtSet::newFull();
 		IntSet Y = IntSet::newFull();
@@ -60,6 +60,7 @@ public:
 		impl(state.extent, state.intent, state.j, state.implied);
 	}
 };
+
 /*
 class ParFCbO : virtual public HybridAlgorithm, public ParallelAlgorithm<ExtendedState, FCbO>{
 	using ParallelAlgorithm::ParallelAlgorithm;

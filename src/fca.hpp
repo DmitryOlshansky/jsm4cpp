@@ -27,12 +27,13 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 	static vector<Entry> table = {
 	// serial
 		{ "cbo", &make<CbO> },
+		{ "bcbo", &make<BCbO> },
 		{ "fcbo", &make<FCbO> },
 	/*	{ "inclose2", &make<InClose2> },
 		{ "inclose3", &make<InClose3> },
-	// parallel
+	// parallel*/
 		{ "pcbo", &make<ParCbO> },
-		{ "pfcbo", &make<ParInClose2> },
+	/*	{ "pfcbo", &make<ParInClose2> },
 		{ "pinclose2", &make<ParInClose2> },
 		{ "pinclose3", &make<ParInClose3> }
 	*/

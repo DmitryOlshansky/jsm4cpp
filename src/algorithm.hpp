@@ -27,77 +27,6 @@ template<> size_t BitVec<0>::length = 0;
 template<> size_t BitVec<1>::words = 0;
 template<> size_t BitVec<1>::length = 0;
 
-struct BlockQueue{
-	BlockQueue(size_t initial){}
-};
-/*
-// A per thread queue that contains flattened copy of required data
-struct BlockQueue{
-	BlockQueue(size_t initial){
-		size = initial;
-		cur_w = 0;
-		cur_r = 0;
-		data = (char*)malloc(initial);
-	}
-
-	void put(ExtSet extent, IntSet intent, size_t j){
-		size_t to_write = extent.raw_size() + intent.raw_size() + sizeof(size_t);
-		grow(cur_w + to_write);
-		extent.store(data + cur_w);
-		cur_w += extent.raw_size();
-		intent.store(data + cur_w);
-		cur_w += intent.raw_size();
-		memcpy(data + cur_w, &j, sizeof(size_t));
-		cur_w += sizeof(size_t);
-	}
-
-	void put(ExtSet extent, IntSet intent, size_t j, IntSet* M, size_t attrs){
-		size_t to_write = extent.raw_size() + intent.raw_size() + sizeof(size_t) + intent.raw_size()*attrs;
-		grow(cur_w + to_write);
-		extent.store(data + cur_w);
-		cur_w += extent.raw_size();
-		intent.store(data + cur_w);
-		cur_w += intent.raw_size();
-		memcpy(data + cur_w, &j, sizeof(size_t));
-		cur_w += sizeof(size_t);
-		for (size_t i = 0; i < attrs; i++){
-			M[i].store(data + cur_w);
-			cur_w += M[i].raw_size();
-		}
-	}
-
-	void fetch(ExtSet& extent, IntSet& intent, size_t& j){
-		extent.load(data + cur_r);
-		cur_r += extent.raw_size();
-		intent.load(data + cur_r);
-		cur_r += intent.raw_size();
-		memcpy(&j, data + cur_r, sizeof(size_t));
-		cur_r += sizeof(size_t);
-	}
-
-	void fetch(ExtSet& extent, IntSet& intent, size_t& j, IntSet* M, size_t attrs){
-		fetch(extent, intent, j);
-		for (size_t i = 0; i<attrs; i++){
-			M[i].load(data + cur_r);
-			cur_r += M[i].raw_size();
-		}
-	}
-
-	bool empty(){
-		return cur_r == cur_w;
-	}
-
-	void grow(size_t needed){
-		if (needed > size){
-			size = max(size * 3 / 2, needed);
-			data = (char*)realloc(data, size);			
-		}
-	}
-	char* data;
-	size_t cur_w, size;
-	size_t cur_r;
-};
-*/
 // Simple I/O buffer with support for atomic portions of data (records).
 // Only complete (committed) records would be ever written to the stream
 class Buffer{
@@ -287,6 +216,7 @@ protected:
 		}
 	}
 
+protected:
 	virtual void algorithm()=0;
 
 	// print intent and/or extent
@@ -511,7 +441,7 @@ public:
 
 	// Produce extent having attribute y from A
 	// true - if produced extent is identical
-	bool filterExtent(ExtSet A, size_t y, ExtSet C){
+	bool filterExtent(ExtSet& A, size_t y, ExtSet& C){
 		bool ret = true;
 		//C.clearAll();
 		A.each([&](size_t i){
@@ -525,7 +455,7 @@ public:
 	}
 
 	// Close intent over extent C, up to y 
-	void partialClosure(ExtSet C, size_t y, IntSet D){
+	void partialClosure(ExtSet& C, size_t y, IntSet& D){
 		//D.setAll();
 		C.each([&](size_t i){
 			D.intersect(row(i), y);
@@ -536,7 +466,7 @@ public:
 };
 
 // Algorithms that use queue to do recursion layer after layer
-class HybridAlgorithm : virtual public Algorithm {
+class HybridAlgorithm : virtual public Algorithm{
 public:
 	using Algorithm::Algorithm;
 
@@ -546,63 +476,7 @@ public:
 		size_t j;
 		Rec(ExtSet e, IntSet i, size_t y) :extent(move(e)), intent(move(i)), j(y){}
 	};
-};
 
-// Algorithms that use thread pool to run many sub-tasks in parallel
-template<class State, class BaseAlgo>
-class ParallelAlgorithm : virtual public Algorithm{
-	enum { QUEUE_SIZE = 16 * 1024 };
-	struct ThreadBlock{
-		BlockQueue queue;
-		IntSet* implied; // if has fast test, stack of (attributes - par_level)*attributes pointers
-		IntSet* M; // if has fast test, real flat array of intents used to unpack from queue
-		ThreadBlock() :queue(QUEUE_SIZE){}
-	};
-
-	vector<ThreadBlock> threadBlks;
-	virtual void serialStep()=0; // main serial algorithm - process up to level L
-
-	// generic parallel algorithm using serialStep and base algorithm for each sub-task
-	void algorithm(){
-		threadBlks.resize(threads());
-		serialStep();
-		// start of multi-threaded part
-		vector<thread> trds(threads());
-
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([this, t]{
-				State state;
-				state.extent = ExtSet::newEmpty();
-				state.intent = IntSet::newEmpty();
-				state.alloc(*this);
-				auto sub = fork<BaseAlgo>();
-				while (extract(t, state)){
-					sub.run(state);
-				}
-				state.dispose();
-			});
-		}
-		for (auto & t : trds){
-			t.join();
-		}
-	}
-protected:	
-	void schedule(State state){
-		static int tid = 0;
-		state.save(threadBlks[tid].queue);
-		tid += 1;
-		if (tid == threads())
-			tid = 0;
-	}
-
- 	// get next item for the worker thread 'tid'
-	bool extract(size_t tid, State& state){
-		if(threadBlks[tid].queue.empty()){
-			return false;
-		}
-		state.load(threadBlks[tid].queue);
-		return true;
-	}
 };
 
 
@@ -613,15 +487,7 @@ struct SimpleState {
 	size_t j; // attribute #
 
 	void alloc(Algorithm& algo){}
-/*
-	void save(BlockQueue& queue){
-		queue.put(extent, intent, j);
-	}
 
-	void load(BlockQueue& queue){
-		queue.fetch(extent, intent, j);
-	}
-*/
 	void dispose(){}
 };
 
@@ -633,12 +499,114 @@ struct ExtendedState {
 	CompIntSet* implied; // must be inited
 	size_t attributes;
 
+	// allocate new stack for implied errors 
+	// (normally state just refrences one layer of common stack)
 	void alloc(Algorithm& algo){
-		implied = 
+		auto new_implied =
 			new CompIntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
+		for(size_t i=0; i<algo.attributes(); i++){
+			new_implied[i] = implied[i];
+		}
+		implied = new_implied;
 	}
 
 	void dispose(){
 		delete[] implied;
 	}
+};
+
+
+// plain strategy that doesn't schedule threads
+class RecursiveStrategy{
+protected:
+	template<class Algo>
+	void processQueueItem(Algo* _this, typename Algo::State& state){
+		_this->run(state); // assume correct mixing
+	}
+};
+
+class SchedulingCutoffStrategy{
+	size_t rec_depth;
+protected:	
+	SchedulingCutoffStrategy():rec_depth(0){}
+	template<class Algo>
+	void processQueueItem(Algo* _this, typename Algo::State& state){
+		if(rec_depth == _this->parLevel())
+			_this->schedule(move(state));
+		else{
+			rec_depth++;
+			_this->run(state);
+			rec_depth--;
+		}
+	}
+};
+
+// Algorithms that use single serial step via recusrive calls
+template<class GenericAlgo>
+class RecursiveAlgorithm: public GenericAlgo, public RecursiveStrategy {
+public:
+	using State = typename GenericAlgo::State;
+	void processQueueItem(State&& s){
+		RecursiveStrategy::processQueueItem(this, s);
+	}
+};
+
+// Algorithms that use serial step tyo generate tasks, followed by parallel execution of them
+// Parallel excution may use a different algorithm then serial one, as long as they agree on
+// state represenation (Algo::State)
+template<class GenericAlgo, class SerialAlgo>
+class ForkJoinAlgorithm : public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
+public:
+	using State = typename GenericAlgo::State;
+	using GenericAlgo::GenericAlgo;
+private:
+	vector<queue<State> > queues;
+
+	// generic parallel algorithm using serialStep and base algorithm for each sub-task
+	void algorithm(){
+		queues = vector<queue<State>>(threads());
+		GenericAlgo::algorithm(); //serial step
+
+		// start of multi-threaded part
+		vector<thread> trds(threads());
+		for (size_t t = 0; t < threads(); t++){
+			trds[t] = thread([this, t]{
+				State state;
+				state.extent = ExtSet::newEmpty();
+				state.intent = IntSet::newEmpty();
+				state.alloc(*this);
+				auto sub = fork<SerialAlgo>();
+				while (extract(t, state)){
+					sub.run(state);
+				}
+				state.dispose();
+			});
+		}
+		for (auto & t : trds){
+			t.join();
+		}
+	}
+
+ 	// get next item for the worker thread 'tid'
+	bool extract(size_t tid, State& state){
+		auto &q = queues[tid];
+		if(q.empty()){
+			return false;
+		}
+		state = move(q.front());
+		q.pop();
+		return true;
+	}
+	void processQueueItem(State&& s){
+		SchedulingCutoffStrategy::processQueueItem(this, s);
+	}
+public:
+	void schedule(State state){
+		static int tid = 0;
+		queues[tid].push(move(state));
+		tid += 1;
+		if (tid == threads())
+			tid = 0;
+	}
+
 };

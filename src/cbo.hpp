@@ -29,7 +29,7 @@ class CbO: virtual public Algorithm {
 			}
 		}
 	}
-
+protected:
 	void algorithm(){
 		ExtSet X = ExtSet::newFull();
 		IntSet Y = IntSet::newFull();
@@ -43,12 +43,13 @@ public:
 		impl(state.extent, state.intent, state.j);
 	}
 };
-/*
 
-class ParCbO: virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState, CbO> {
-	using Algorithm::Algorithm;
+// Breadth-first CbO modifcation, uses queue to walk CbO call tree in breadth-first manner
+// Generalized to overridable strategy w.r.t. handling queue items
+class GenericBCbO: virtual public HybridAlgorithm {
+	using HybridAlgorithm::HybridAlgorithm;
 	// an interation of Close by One algorithm
-	void parCboImpl(ExtSet& A, IntSet& B, size_t y, size_t rec_level) {
+	void impl(ExtSet& A, IntSet& B, size_t y) {
 		output(A, B);
 		if(y == attributes())
 			return;
@@ -78,22 +79,34 @@ class ParCbO: virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleSta
 			}
 		}
 		while (!q.empty()){
-			Rec r = q.front();
-			if (rec_level == parLevel())
-				schedule(SimpleState{r.extent, r.intent, r.j + 1});
-			else
-				parCboImpl(r.extent, r.intent, r.j + 1, rec_level+1);
+			Rec r = move(q.front());
+			processQueueItem(SimpleState{move(r.extent), move(r.intent), r.j + 1});
 			q.pop();
 		}
 	}
-
-	void serialStep(){
+protected:
+	void algorithm(){
 		ExtSet X = ExtSet::newFull();
 		IntSet Y = IntSet::newFull();
 		X.each([&](size_t i){
 			Y.intersect(row(i));
 		});
-		parCboImpl(X, Y, 0, 0);
+		impl(X, Y, 0);
+	}
+	
+	
+public:
+	using State = SimpleState;
+protected:
+	virtual void processQueueItem(State&&)=0;
+public:
+	void run(State& state){
+		impl(state.extent, state.intent, state.j);
 	}
 };
-*/
+
+// Plain recursive call strategy
+using BCbO = RecursiveAlgorithm<GenericBCbO>;
+
+// Use normal CbO for parallel excution part, no need to queue items 
+using ParCbO = ForkJoinAlgorithm<GenericBCbO, CbO>;
