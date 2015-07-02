@@ -15,11 +15,6 @@
 #include "fimi.hpp"
 #include "sets.hpp"
 
-template<>
-size_t BitVec<0>::words = 0;
-template<>
-size_t BitVec<0>::length = 0;
-
 using Set = BitVec<0>;
 
 void usage(){

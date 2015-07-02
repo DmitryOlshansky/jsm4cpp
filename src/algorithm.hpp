@@ -22,11 +22,6 @@ using ExtSet = BitVec<0>;
 using IntSet = BitVec<1>;
 using CompIntSet = CompressedSet<IntSet>;
 
-// Sadly fixed BitVectors need separate statics declaration per instance
-template<> size_t BitVec<0>::words = 0;
-template<> size_t BitVec<0>::length = 0;
-template<> size_t BitVec<1>::words = 0;
-template<> size_t BitVec<1>::length = 0;
 
 // Simple I/O buffer with support for atomic portions of data (records).
 // Only complete (committed) records would be ever written to the stream

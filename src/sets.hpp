@@ -30,38 +30,28 @@ inline size_t popcnt(size_t arg)
 	}
 	return bits;
 }
-
-struct LinearSet{
-	struct Pool{
-		Pool(size_t n):allocs(new LinearSet[n]), size(n), cur(0){}
-		LinearSet newEmpty(){
-			LinearSet ret = allocs[cur];
-			ret.nums = new vector<int>();
-			cur++;
-			return ret;
-		}
-		LinearSet newFull(){
-			LinearSet ret = allocs[cur];
-			ret.nums = new vector<int>(total);
-			for(size_t i=0; i<total; i++){
-				(*ret.nums)[i] = i;
-			}
-			cur++;
-			return ret;	
-		}
-		~Pool(){
-			for(size_t i=0; i<size; i++){
-				if(allocs[i].nums)
-					delete allocs[i].nums;
-			}
-			delete[] allocs;
-		}
-		LinearSet* allocs;
-		size_t size;
-		size_t cur;
-	};
-
+/*
+class LinearSet{
+	static size_t total;
+public:
 	LinearSet():nums(nullptr){}
+
+	static LinearSet newEmpty(){
+		LinearSet ret = allocs[cur];
+		ret.nums = new vector<int>();
+		cur++;
+		return ret;
+	}
+
+	static LinearSet newFull(){
+		LinearSet ret = allocs[cur];
+		ret.nums = new vector<int>(total);
+		for(size_t i=0; i<total; i++){
+			(*ret.nums)[i] = i;
+		}
+		cur++;
+		return ret;	
+	}
 
 	template<class Fn>
 	void each(Fn&& fn){
@@ -72,11 +62,6 @@ struct LinearSet{
 		nums->clear();
 	}
 
-	vector<int>* nums;
-
-	size_t raw_size(){
-		return nums->size()*sizeof(int) + sizeof(int);
-	}
 
 	bool hasMoreThen(size_t items){
 		return nums->size() > items;
@@ -91,26 +76,11 @@ struct LinearSet{
 		}
 	}
 
-	void store(void* ptr){
-		int sz = (int)nums->size();
-		memcpy(ptr, &sz, sizeof(int));
-		memcpy((char*)ptr+sizeof(int), &(*nums)[0], sizeof(int)*nums->size());
-	}
-
-	void load(void* ptr){
-		int sz;
-		memcpy(&sz, ptr, sizeof(int));
-		nums->resize(sz);
-		memcpy(&(*nums)[0], (char*)ptr+sizeof(int), sizeof(int)*nums->size());
-	}
-
 	static void setSize(size_t size){
 		total = size;
 	}
-	static size_t total;
 };
-
-size_t LinearSet::total;
+*/
 /**
 	Bit-vector implementation of integer set concept.
 	Operations:

@@ -12,11 +12,11 @@ for alg in $ALL
 do
     echo $alg
     #TODO: -m2 - min support tests
-    time ./gen -a$alg -v1 -L1 -t4 $1 | sort > "$alg-$1"
+    time ./gen -a$alg -v1 -L1 -t4 $1 | sort > "out/$alg-$1"
 done
 
 for alg in $NOTCBO
 do
-    diff --brief "cbo-$1" "$alg-$1"
+    diff --brief "out/cbo-$1" "out/$alg-$1"
 done
 

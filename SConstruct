@@ -13,6 +13,6 @@ elif env['CXX'] == 'g++' or env['CXX'] == 'clang++':
 		env.Append(CCFLAGS="-g -std=c++11 -pthread")
 	env.Append(LIBS=["pthread"])
 
-env.Program('gen', ['src/gen.cpp'])
-env.Program('jsm', ['src/jsm.cpp'])
-env.Program('jsm_classify', ['src/jsm_classify.cpp'])
+env.Program('gen', ['src/gen.cpp', 'src/sets.cpp'])
+env.Program('jsm', ['src/jsm.cpp', 'src/sets.cpp'])
+env.Program('jsm_classify', ['src/jsm_classify.cpp', 'src/sets.cpp'])
