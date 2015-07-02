@@ -1,8 +1,11 @@
 /**
-	Различные реализации множеств для применения в JSM процедурах.
+	Multiple SET datastructures for use in FCA concept generation,
+	frequent itemset mining or JSM induction step.
 
-	LinearSet - сортированный массив целых чисел
-	BitVec - битовый вектор фиксированной длины
+	BitVec - fixed-length bitvector, length is static and must be set before use
+	LinearSet - ordered array of integers
+	StdSet - B-Tree based on C++11 set 
+	HashSet - hash table based on C++11 unordered_set 
 */
 #pragma once
 
@@ -12,7 +15,6 @@
 #include <vector>
 #include <ostream>
 #include <memory>
-
 
 using namespace std;
 
@@ -385,22 +387,3 @@ public:
 		}
 	}
 };
-
-/* //TODO: bogus
-template<class Set>
-class CompressedSet2{
-	shared_ptr<Set> set;
-public:
-	CompressedSet2():set(){
-		cerr<<"Constructed!"<<endl;
-	}
-	bool null(){ return !set || set->null(); }
-	CompressedSet2 operator=(Set&& val){
-		set = make_shared<Set>(move(val));
-	}
-	CompressedSet2& operator=(CompressedSet2& cs){
-		set = cs.set;
-		return *this;
-	}
-	Set* operator ->(){ return set.get(); }
-};*/
