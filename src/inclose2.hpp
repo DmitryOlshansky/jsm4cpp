@@ -5,30 +5,28 @@
 
 #include "algorithm.hpp"
 
-class InClose2 : virtual public HybridAlgorithm {
+class GenericInClose2 : virtual public HybridAlgorithm {
 	using HybridAlgorithm::HybridAlgorithm;
 
-	void impl(ExtSet A, IntSet B, size_t y){
+	void impl(ExtSet& A, IntSet& B, size_t y){
 		if (y == attributes()){
 			output(A, B);
 			return;
 		}
 		queue<Rec> q;
-		IntSet::Pool ints(attributes() - y);
-		ExtSet::Pool exts(attributes() - y);
 		ExtSet C;
 		IntSet D;
 		for (size_t j = y; j < attributes(); j++) {
 			if (!B.has(j)){
-				C = ExtSet::newEmpty();
+				toEmpty(C);
 				if (filterExtent(A, j, C)){ // if A == C
 					B.add(j);
 				}
 				else{
-					D = IntSet::newFull();
+					toFull(D);
 					partialClosure(C, j, D);
 					if (B.equal(D, j)){ // equal up to <j
-						q.emplace(C, D, j);
+						q.emplace(move(C), move(D), j);
 					}
 					else
 						stats.fail_canon++;
@@ -37,17 +35,19 @@ class InClose2 : virtual public HybridAlgorithm {
 		}
 		output(A, B);
 		while (!q.empty()){
-			Rec r = q.front();
+			Rec r = move(q.front());
 			r.intent.copy(B);
 			r.intent.add(r.j);
-			impl(r.extent, r.intent, r.j+1);
+			processQueueItem(SimpleState{move(r.extent), move(r.intent), r.j+1});
 			q.pop();
 		}
 	}
 
+public:
+	using State = SimpleState;
+protected:
+	virtual void processQueueItem(State&&)=0;
 	void algorithm(){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
 		ExtSet X = ExtSet::newFull();
 		IntSet Y = IntSet::newEmpty();
 		impl(X, Y, 0);
@@ -58,54 +58,6 @@ public:
 	}
 };
 
-class ParInClose2 : virtual public HybridAlgorithm, public ParallelAlgorithm<SimpleState, InClose2> {
-	using ParallelAlgorithm::ParallelAlgorithm;
+using InClose2 = RecursiveAlgorithm<GenericInClose2>;
 
-	void impl(ExtSet A, IntSet B, size_t y, size_t rec_level){
-		if (y == attributes()){
-			output(A, B);
-			return;
-		}
-		queue<Rec> q;
-		IntSet::Pool ints(attributes() - y);
-		ExtSet::Pool exts(attributes() - y);
-		ExtSet C;
-		IntSet D;
-		for (size_t j = y; j < attributes(); j++) {
-			if (!B.has(j)){
-				C = ExtSet::newEmpty();
-				if (filterExtent(A, j, C)){ // if A == C
-					B.add(j);
-				}
-				else{
-					D = IntSet::newFull();
-					partialClosure(C, j, D);
-					if (B.equal(D, j)){ // equal up to <j
-						q.emplace(C, D, j);
-					}
-					else
-						stats.fail_canon++;
-				}
-			}
-		}
-		output(A, B);
-		while (!q.empty()){
-			Rec r = q.front();
-			r.intent.copy(B);
-			r.intent.add(r.j);
-			if (rec_level == parLevel())
-				schedule(SimpleState{r.extent, r.intent, r.j + 1});
-			else
-				impl(r.extent, r.intent, r.j + 1, rec_level+1);
-			q.pop();
-		}
-	}
-
-	void serialStep(){
-		ExtSet::Pool exts(1);
-		IntSet::Pool ints(1);
-		ExtSet X = ExtSet::newFull();
-		IntSet Y = IntSet::newEmpty();
-		impl(X, Y, 0, 0);
-	}
-};
+using ParInClose2 = ForkJoinAlgorithm<GenericInClose2, InClose2>;

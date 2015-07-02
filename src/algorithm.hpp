@@ -514,13 +514,15 @@ struct ExtendedState {
 		j = state.j;
 		attributes = state.attributes;
 		if(implied){ // assume we have preallocated implied stack that is X*attributes in size
-			for(size_t i=0; i<state.attributes; i++){
+			for(size_t i=j; i<state.attributes; i++){ // no point in copying sets < j, recursion goes from j
 				implied[i] = state.implied[i];
 			}
 			state.implied = nullptr;
 		}
-		else
+		else{
 			implied = state.implied;
+			state.implied = nullptr;
+		}
 	}
 
 	// allocate new stack for implied errors 
