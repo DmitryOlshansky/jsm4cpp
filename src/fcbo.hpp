@@ -55,7 +55,7 @@ protected:
 			Y.intersect(row(i));
 		});
 		// intents with implied error, see FCbO papper
-		CompIntSet* implied = new CompIntSet[(attributes()+1)*attributes()];
+		CompIntSet* implied = new CompIntSet[(attributes()+1)*attributes()];  //TODO: overkill for parallel versions..
 		impl(X, Y, 0, implied);
 		// may avoid freeing this in one-shot program
 		// can't do this in parallel version, as this is only the first step

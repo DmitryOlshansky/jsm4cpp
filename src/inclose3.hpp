@@ -58,7 +58,7 @@ public:
 protected:
 	void algorithm(){
 		// intents with implied error, see FCbO papper
-		CompIntSet* implied = new CompIntSet[(attributes()+1)*attributes()];
+		CompIntSet* implied = new CompIntSet[(attributes()+1)*attributes()]; //overkill for parallel versions..
 		ExtSet X = ExtSet::newFull();
 		IntSet Y = IntSet::newEmpty();
 		impl(X, Y, 0, implied);
