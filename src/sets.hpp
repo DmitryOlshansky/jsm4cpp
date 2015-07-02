@@ -30,57 +30,65 @@ inline size_t popcnt(size_t arg)
 	}
 	return bits;
 }
-/*
+
+
 class LinearSet{
 	static size_t total;
+	vector<unsigned> attrs;
+	bool full; // == true - means all ones (to avoid allocating the whole vector)
 public:
-	LinearSet():nums(nullptr){}
-
-	static LinearSet newEmpty(){
-		LinearSet ret = allocs[cur];
-		ret.nums = new vector<int>();
-		cur++;
-		return ret;
+	explicit LinearSet(bool full_=false):full(full_){}
+	static void setSize(size_t size){
+		total = size;
 	}
-
+	static LinearSet newEmpty(){
+		return LinearSet(false);
+	}
 	static LinearSet newFull(){
-		LinearSet ret = allocs[cur];
-		ret.nums = new vector<int>(total);
-		for(size_t i=0; i<total; i++){
-			(*ret.nums)[i] = i;
-		}
-		cur++;
-		return ret;	
+		return LinearSet(true);	
 	}
 
 	template<class Fn>
 	void each(Fn&& fn){
-		for_each(nums->begin(), nums->end(), fn);
+		if(full){
+			for(unsigned i=0; i<total; i++)
+				fn(i);
+		}
+		else
+			for_each(attrs.begin(), attrs.end(), fn);
 	}
 	
 	void clearAll(){
-		nums->clear();
+		full = false;
+		attrs.clear();
 	}
 
+	void setAll(){
+		full = true;
+		attrs.clear();
+	}
+
+	bool null(){
+		return attrs.size() == 0;
+	}
 
 	bool hasMoreThen(size_t items){
-		return nums->size() > items;
+		return attrs.size() > items;
 	}
 
 	void add(size_t val){
-		if(nums->size() && nums->back() < val)
-			nums->push_back(val);
+		if(full)
+			return;
+		if(attrs.size() && attrs.back() < val){ // 100% of uses for extents in *CbO and *InClose2/3
+			attrs.push_back(val);
+		}
 		else {
-			auto it = lower_bound(nums->begin(), nums->end(), val);
-			nums->insert(it, val);
+			auto it = lower_bound(attrs.begin(), attrs.end(), val);
+			attrs.insert(it, val);
 		}
 	}
-
-	static void setSize(size_t size){
-		total = size;
-	}
 };
-*/
+
 /**
 	Bit-vector implementation of integer set concept.
 	Operations:

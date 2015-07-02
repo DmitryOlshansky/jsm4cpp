@@ -17,8 +17,14 @@ using namespace std;
 	Algorithm is parametrized by 2 Set implementations.
 	One is used for intents and the other for extents.
 */
-
+#if defined(USE_LINEAR_EXT)
+using ExtSet = LinearSet;
+#elif defined(USE_BIT_EXT)
 using ExtSet = BitVec<0>;
+#else
+#error "Must use some imlementation for Extent!"
+#endif
+
 using IntSet = BitVec<1>;
 using CompIntSet = CompressedSet<IntSet>;
 
@@ -728,3 +734,46 @@ public:
 	}
 
 };
+
+/*
+template<class GenericAlgo, class SerialAlgo>
+class WithThreadPool: public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
+public:
+	using State = typename GenericAlgo::State;
+	using GenericAlgo::GenericAlgo;
+private:
+	SharedQueue<State> queue;
+
+	// generic parallel algorithm using serialStep and base algorithm for each sub-task
+	void algorithm(){
+		GenericAlgo::algorithm(); //serial step
+
+		// start of multi-threaded part
+		vector<thread> trds(threads());
+		for (size_t t = 0; t < threads(); t++){
+			trds[t] = thread([this]{
+				State state;
+				state.extent = ExtSet::newEmpty();
+				state.intent = IntSet::newEmpty();
+				state.alloc(*this);
+				auto sub = fork<SerialAlgo>();
+				while (queue.pop(state)){
+					sub.run(state);
+				}
+				state.dispose();
+			});
+		}
+		for (auto & t : trds){
+			t.join();
+		}
+	}
+
+	void processQueueItem(State&& s){
+		SchedulingCutoffStrategy::processQueueItem(this, s);
+	}
+public:
+	void schedule(State&& state){
+		queue.push(move(state));
+	}
+
+};*/
