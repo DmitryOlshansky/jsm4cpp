@@ -29,11 +29,16 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 		{ "fcbo", &make<FCbO> },
 		{ "inclose2", &make<InClose2> },
 		{ "inclose3", &make<InClose3> },
-	// parallel
-		{ "pcbo", &make<ParCbO> },
-		{ "pfcbo", &make<ParFCbO> },
-		{ "pinclose2", &make<ParInClose2> },
-		{ "pinclose3", &make<ParInClose3> }
+	// parallel: fork-join model based on ideas from P(F)CbO papers
+		{ "p-bcbo", &make<ParCbO> },
+		{ "p-fcbo", &make<ParFCbO> },
+		{ "p-inclose2", &make<ParInClose2> },
+		{ "p-inclose3", &make<ParInClose3> },
+	// fair queue + fork-join
+		{ "fp-bcbo", &make<FParCbO> },
+		{ "fp-fcbo", &make<FParFCbO> },
+		{ "fp-inclose2", &make<FParInClose2> },
+		{ "fp-inclose3", &make<FParInClose3> }
 	};
 	for(auto& e : table){
 		if(name == e.name)

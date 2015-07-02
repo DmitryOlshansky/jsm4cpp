@@ -58,6 +58,8 @@ public:
 	}
 };
 
-using InClose2 = RecursiveAlgorithm<GenericInClose2>;
+using InClose2 = RecursiveCalls<GenericInClose2>;
 
-using ParInClose2 = ForkJoinAlgorithm<GenericInClose2, InClose2>;
+using ParInClose2 = ForkJoin<GenericInClose2, InClose2>;
+
+using FParInClose2 = FairForkJoin<GenericInClose2, InClose2>;

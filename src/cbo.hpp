@@ -106,7 +106,9 @@ public:
 };
 
 // Plain recursive call strategy
-using BCbO = RecursiveAlgorithm<GenericBCbO>;
+using BCbO = RecursiveCalls<GenericBCbO>;
 
-// Use normal CbO for parallel excution part, no need to queue items 
-using ParCbO = ForkJoinAlgorithm<GenericBCbO, CbO>;
+// Use normal CbO for parallel execution part, no need to queue items 
+using ParCbO = ForkJoin<GenericBCbO, CbO>;
+
+using FParCbO = ForkJoin<GenericBCbO, CbO>;

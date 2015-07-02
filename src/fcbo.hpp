@@ -67,6 +67,8 @@ public:
 	}
 };
 
-using FCbO = RecursiveAlgorithm<GenericFCbO>;
+using FCbO = RecursiveCalls<GenericFCbO>;
 
-using ParFCbO = ForkJoinAlgorithm<GenericFCbO, FCbO>;
+using ParFCbO = ForkJoin<GenericFCbO, FCbO>;
+
+using FParFCbO = FairForkJoin<GenericFCbO, FCbO>;

@@ -1,6 +1,7 @@
 #pragma once 
 
 #include <algorithm>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <memory>
@@ -564,7 +565,7 @@ protected:
 
 // Algorithms that use single serial step via recusrive calls
 template<class GenericAlgo>
-class RecursiveAlgorithm: public GenericAlgo, public RecursiveStrategy {
+class RecursiveCalls: public GenericAlgo, public RecursiveStrategy {
 public:
 	using State = typename GenericAlgo::State;
 	void processQueueItem(State&& s){
@@ -572,11 +573,11 @@ public:
 	}
 };
 
-// Algorithms that use serial step tyo generate tasks, followed by parallel execution of them
-// Parallel excution may use a different algorithm then serial one, as long as they agree on
+// Algorithms that use serial step to generate tasks, followed by a fork-join of parallel execution
+// Parallel execution may use a different algorithm then serial one, as long as they agree on
 // state represenation (Algo::State)
 template<class GenericAlgo, class SerialAlgo>
-class ForkJoinAlgorithm : public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
+class ForkJoin : public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
 public:
 	using State = typename GenericAlgo::State;
 	using GenericAlgo::GenericAlgo;
@@ -628,6 +629,107 @@ public:
 		tid += 1;
 		if (tid == threads())
 			tid = 0;
+	}
+
+};
+
+// Simple mutex-based synchronized queue
+template<class T>
+class SyncronizedQueue{
+	queue<T> queue_;
+	mutex mtx_;
+public:
+	bool pop(T& val){
+		lock_guard<mutex> lock(mtx_);
+		if(queue_.empty())
+			return false;
+		val = move(queue_.front());
+		queue_.pop();
+		return true;
+	}
+
+	void push(T&& val){
+		lock_guard<mutex> lock(mtx_);
+		queue_.push(move(val));
+	}
+};
+
+// Shared  queue - supports simlutanious pushing and popping.
+// May be drained multiple times in the process,
+// closing the queue is thus a separate primitive
+template<class T>
+class SharedQueue{
+	queue<T> queue_;
+	mutex mtx_;
+	condition_variable cond_;
+	bool done_;
+public:
+	SharedQueue():done_(false){}
+	bool pop(T& val){
+		unique_lock<mutex> lock(mtx_);
+		cond_.wait(lock, [&]{ return !queue_.empty() || done_; });
+		if(queue_.empty()) // done -> and queue is empty
+			return false;
+		val = move(queue_.front());
+		queue_.pop();
+		return true;
+	}
+
+	void push(T&& val){
+		unique_lock<mutex> lock(mtx_);
+		assert(!done_); // must not push after closing the queue
+		queue_.push(move(val));
+		lock.unlock();
+		cond_.notify_one();
+	}
+
+	// "close" the queue - no more new elements are going to be pushed
+	void close(){
+		unique_lock<mutex> lock(mtx_);
+		done_ = true;
+		cond_.notify_all();
+	}
+};
+
+// Same as fork-join execution but using shared queue to assert fair distribution of work load
+template<class GenericAlgo, class SerialAlgo>
+class FairForkJoin: public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
+public:
+	using State = typename GenericAlgo::State;
+	using GenericAlgo::GenericAlgo;
+private:
+	SyncronizedQueue<State> queue;
+
+	// generic parallel algorithm using serialStep and base algorithm for each sub-task
+	void algorithm(){
+		GenericAlgo::algorithm(); //serial step
+
+		// start of multi-threaded part
+		vector<thread> trds(threads());
+		for (size_t t = 0; t < threads(); t++){
+			trds[t] = thread([this]{
+				State state;
+				state.extent = ExtSet::newEmpty();
+				state.intent = IntSet::newEmpty();
+				state.alloc(*this);
+				auto sub = fork<SerialAlgo>();
+				while (queue.pop(state)){
+					sub.run(state);
+				}
+				state.dispose();
+			});
+		}
+		for (auto & t : trds){
+			t.join();
+		}
+	}
+
+	void processQueueItem(State&& s){
+		SchedulingCutoffStrategy::processQueueItem(this, s);
+	}
+public:
+	void schedule(State&& state){
+		queue.push(move(state));
 	}
 
 };

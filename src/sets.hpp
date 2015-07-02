@@ -128,7 +128,7 @@ class BitVec{
 	explicit BitVec(size_t* ptr) : data(ptr){}
 	//
 public:
-	// allocate array of sets, permanently
+	// allocate array of sets, permanently (don't try to delete this array!)
 	static BitVec* newArray(size_t n){
 		BitVec* ptrs = new BitVec[n];
 		size_t* p = (size_t*)calloc(n*words, WORD_SIZE);
