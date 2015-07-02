@@ -498,16 +498,35 @@ struct ExtendedState {
 	size_t j; // attribute #
 	CompIntSet* implied; // must be inited
 	size_t attributes;
+	ExtendedState():extent(), intent(), j(0), implied(nullptr), attributes(0){}
+	ExtendedState(ExtSet extent_, IntSet intent_, size_t attr, CompIntSet* implied, size_t total_attributes):
+		extent(move(extent_)), intent(move(intent_)), j(attr), implied(implied), attributes(total_attributes){}
+
+	ExtendedState(ExtendedState&& state):implied(nullptr)
+	{
+		*this = move(state);
+	}
+
+	ExtendedState& operator=(ExtendedState&& state)
+	{
+		extent = move(state.extent);
+		intent = move(state.intent);
+		j = state.j;
+		attributes = state.attributes;
+		if(implied){ // assume we have preallocated implied stack that is X*attributes in size
+			for(size_t i=0; i<state.attributes; i++){
+				implied[i] = state.implied[i];
+			}
+			state.implied = nullptr;
+		}
+		else
+			implied = state.implied;
+	}
 
 	// allocate new stack for implied errors 
 	// (normally state just refrences one layer of common stack)
 	void alloc(Algorithm& algo){
-		auto new_implied =
-			new CompIntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
-		for(size_t i=0; i<algo.attributes(); i++){
-			new_implied[i] = implied[i];
-		}
-		implied = new_implied;
+		implied = new CompIntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
 	}
 
 	void dispose(){

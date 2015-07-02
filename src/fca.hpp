@@ -33,8 +33,8 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 		{ "inclose3", &make<InClose3> },
 	// parallel*/
 		{ "pcbo", &make<ParCbO> },
-	/*	{ "pfcbo", &make<ParInClose2> },
-		{ "pinclose2", &make<ParInClose2> },
+		{ "pfcbo", &make<ParFCbO> },
+	/*	{ "pinclose2", &make<ParInClose2> },
 		{ "pinclose3", &make<ParInClose3> }
 	*/
 	};
