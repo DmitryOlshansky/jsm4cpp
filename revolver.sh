@@ -8,10 +8,12 @@ read_batch(){
 	echo "$X"
 }
 
-inotifywait -m -r src -e modify | while true; do
+scons $@ 2>&1 | head -40
+echo "[REVOLVER] Intial build is done."
+inotifywait -m -r src SConstruct -e modify | while true; do
 	BUF=$(read_batch)
 	if [ "x$BUF" != "x" ] ; then
-		scons --extent=bitset 2>&1 | head -40
-		echo "[REVOLVER] Done. Wating for new events."
+		scons $@ 2>&1 | head -40
+		echo "[REVOLVER] Done. Waiting for new events."
 	fi
 done

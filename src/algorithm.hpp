@@ -1,15 +1,14 @@
 #pragma once 
 
 #include <algorithm>
-#include <condition_variable>
 #include <functional>
-#include <mutex>
 #include <memory>
 #include <queue>
 
-#include "sets.hpp"
 #include "fimi.hpp"
-
+#include "platform.hpp"
+#include "queues.hpp"
+#include "sets.hpp"
 
 using namespace std;
 //TODO: add min_support filtering for InClose algorithms!
@@ -28,133 +27,6 @@ using ExtSet = BitVec<0>;
 using IntSet = BitVec<1>;
 using CompIntSet = CompressedSet<IntSet>;
 
-
-// Simple I/O buffer with support for atomic portions of data (records).
-// Only complete (committed) records would be ever written to the stream
-class Buffer{
-	char *buf;
-	size_t size; // buffer size
-	size_t cur; // current position
-	size_t committed; // last committed position
-	ostream* out_;
-	shared_ptr<mutex> mut_;
-	Buffer(const Buffer&)=delete;
-public:
-	Buffer(ostream& out, size_t sz): 
-		 buf((char*)malloc(sz)), size(sz), cur(0), committed(0), out_(&out), 
-		 mut_(make_shared<mutex>()){}
-	//
-	Buffer& sync(Buffer& b){
-		mut_ = b.mut_;
-	}
-	// move over and null-ptr the buffer
-	Buffer(Buffer&& b){
-		buf = b.buf;
-		size = b.size;
-		cur = b.cur;
-		committed = b.committed;
-		out_ = b.out_;
-		b.buf = nullptr;
-	}
-	// place c into buffer
-	void put(char c){
-		if(cur == size){
-			if(committed > size * 63 / 64) // buffer should be large enough to hold ~64 records
-				flush();
-			else
-				buf = (char*)realloc(buf, size*3/2);
-		}
-		buf[cur++] = c;
-	}
-	// place len bytes from data
-	void put(char* data, size_t len){
-		if(cur + len > size){
-			if(committed > size * 63 / 64) // buffer should be large enough to hold ~64 records
-				flush();
-			else {
-				while(cur + len > size)
-					size = size * 3 / 2;
-				buf = (char*)realloc(buf, size);
-			}
-		}
-		memcpy(buf+cur, data, len);
-		cur += len;
-	}
-	// change output stream
-	Buffer& output(ostream& os){
-		flush();
-		out_ = &os;
-		return *this;
-	}
-	// get current stream
-	ostream& output(){
-		return *out_;
-	}
-	// resets position to the last commited record
-	Buffer& reset(){
-		cur = committed;
-		return *this;
-	}
-	// ends one "record" - atomic unit of data
-	Buffer& commit(){
-		committed = cur;
-		return *this;
-	}
-	// flushes all commited data
-	Buffer& flush(){
-		if(committed){
-			{
-				lock_guard<mutex> lock(*mut_);
-				out_->write(buf, committed);
-			}
-			// memmove - may overlap
-			memmove(buf, buf+committed, size - committed);
-			cur -= committed;
-			committed = 0;
-		}
-		return *this;
-	}
-	//
-	~Buffer(){
-		if(buf){ //buf is empty after move
-			flush();
-			free(buf);
-		}
-	}
-};
-
-class TabledIntWriter {
-	struct Entry{
-		char len;
-		char s[15];
-	};
-	vector<Entry> table;
-public:
-	TabledIntWriter(size_t max){
-		table.resize(max);
-		for(size_t i=0; i<max; i++){
-			int cnt = sprintf(table[i].s, "%u", (unsigned)i);
-			table[i].len = (char)cnt;
-		}
-	}
-
-	void write(size_t val, Buffer& buf){
-		auto& e = table[val];
-		buf.put(e.s, e.len);
-	}
-};
-
-class SimpleIntWriter {
-public:
-	SimpleIntWriter(){}
-	void write(size_t val, Buffer& buf){
-		char tmp[16];
-		int cnt = sprintf(tmp, "%u", (unsigned) val);
-		buf.put(tmp, cnt);
-	}
-};
-
-
 class Algorithm {
 private:
 	IntSet* rows; // attributes of objects
@@ -168,7 +40,14 @@ private:
 	ostream* diag_;
 	Buffer buf;
 	shared_ptr<mutex> output_mtx;
+#if defined(USE_TABLE_WRITER)
 	shared_ptr<TabledIntWriter> writer;
+#elif  defined(USE_SIMPLE_WRITER)
+	shared_ptr<SimpleIntWriter> writer;
+#else
+	#error "Must define one of legal USE_xxx_WRITER"
+	Error writer;
+#endif
 	//
 	size_t verbose_;
 	size_t par_level_;
@@ -271,7 +150,7 @@ public:
 
 	// Get/set verbose level
 	size_t verbose()const { return verbose_; }
-	Algorithm& verbose(bool verboseVal){ 
+	Algorithm& verbose(size_t verboseVal){ 
 		verbose_ = verboseVal;
 		return *this;
 	}
@@ -564,7 +443,7 @@ protected:
 	}
 };
 
-// Algorithms that use single serial step via recusrive calls
+// Algorithms that use single serial step and follow through it with recursive calls
 template<class GenericAlgo>
 class RecursiveCalls: public GenericAlgo, public RecursiveStrategy {
 public:
@@ -575,7 +454,7 @@ public:
 };
 
 // Algorithms that use serial step to generate tasks, followed by a fork-join of parallel execution
-// Parallel execution may use a different algorithm then serial one, as long as they agree on
+// Parallel execution may use a different algorithm then the serial one, as long as they agree on
 // state represenation (Algo::State)
 template<class GenericAlgo, class SerialAlgo>
 class ForkJoin : public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
@@ -634,63 +513,6 @@ public:
 
 };
 
-// Simple mutex-based synchronized queue
-template<class T>
-class SyncronizedQueue{
-	queue<T> queue_;
-	mutex mtx_;
-public:
-	bool pop(T& val){
-		lock_guard<mutex> lock(mtx_);
-		if(queue_.empty())
-			return false;
-		val = move(queue_.front());
-		queue_.pop();
-		return true;
-	}
-
-	void push(T&& val){
-		lock_guard<mutex> lock(mtx_);
-		queue_.push(move(val));
-	}
-};
-
-// Shared  queue - supports simlutanious pushing and popping.
-// May be drained multiple times in the process,
-// closing the queue is thus a separate primitive
-template<class T>
-class SharedQueue{
-	queue<T> queue_;
-	mutex mtx_;
-	condition_variable cond_;
-	bool done_;
-public:
-	SharedQueue():done_(false){}
-	bool pop(T& val){
-		unique_lock<mutex> lock(mtx_);
-		cond_.wait(lock, [&]{ return !queue_.empty() || done_; });
-		if(queue_.empty()) // done -> and queue is empty
-			return false;
-		val = move(queue_.front());
-		queue_.pop();
-		return true;
-	}
-
-	void push(T&& val){
-		unique_lock<mutex> lock(mtx_);
-		assert(!done_); // must not push after closing the queue
-		queue_.push(move(val));
-		lock.unlock();
-		cond_.notify_one();
-	}
-
-	// "close" the queue - no more new elements are going to be pushed
-	void close(){
-		unique_lock<mutex> lock(mtx_);
-		done_ = true;
-		cond_.notify_all();
-	}
-};
 
 // Same as fork-join execution but using shared queue to assert fair distribution of work load
 template<class GenericAlgo, class SerialAlgo>
@@ -703,25 +525,19 @@ private:
 
 	// generic parallel algorithm using serialStep and base algorithm for each sub-task
 	void algorithm(){
-		chrono::duration<double> elapsed;
-		auto beg = chrono::high_resolution_clock::now();
-		GenericAlgo::algorithm(); //serial step
-		auto end = chrono::high_resolution_clock::now();
-		elapsed = end - beg;
-		// cerr << "Serial: " << elapsed.count() << endl;
-
+		measure([&]{
+			serial();
+		}, "Serial step", verbose() > 1);
 		// start of multi-threaded part
 		if(threads()){
 			size_t tpool_size = threads()-1;
 			vector<thread> trds(tpool_size);
-			beg = chrono::high_resolution_clock::now();
-			for (size_t t = 0; t < tpool_size; t++){
-				trds[t] = thread([this]{ workThread();	});
-			}
-			end = chrono::high_resolution_clock::now();
-			elapsed = end - beg;
+			measure([&]{
+				for (size_t t = 0; t < tpool_size; t++){
+					trds[t] = thread([this]{ workThread();	});
+				}
+			}, "Starting threads", verbose() > 1);
 			workThread();
-			// cerr << "Starting threads took: " << elapsed.count() << endl;
 			for (auto & t : trds){
 				t.join();
 			}
@@ -745,6 +561,9 @@ private:
 		}
 		state.dispose();
 	}
+	void serial(){
+		GenericAlgo::algorithm();
+	}
 public:
 	void schedule(State&& state){
 		queue.push(move(state));
@@ -762,26 +581,29 @@ private:
 	SharedQueue<State> queue;
 
 	void algorithm(){
-		vector<thread> trds(threads());
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([this]{
-				workThread();
-			});
+		if(threads()){
+			size_t tpool_size = threads()-1;
+			vector<thread> trds(tpool_size);
+			measure([&]{
+				for (size_t t = 0; t < tpool_size; t++){
+					trds[t] = thread([this]{ workThread(); });
+				}
+			}, "Starting threads", verbose() > 1);
+			mainThread();
+			for (auto & t : trds){ // join pooled threads
+				t.join();
+			}
 		}
-		mainThread();
-		for (auto & t : trds){ // join pooled threads
-			t.join();
-		}
+		else
+			mainThread();
 	}
 
+	// combines scheduling step and parallel worker step
 	void mainThread(){
-		chrono::duration<double> elapsed;
-		auto beg = chrono::high_resolution_clock::now();
-		GenericAlgo::algorithm(); //serial step
-		queue.close();
-		auto end = chrono::high_resolution_clock::now();
-		elapsed = end - beg;
-		cerr << "Serial: " << elapsed.count() << endl;
+		measure([&]{
+			serial();
+		}, "Serial step", verbose() > 1);
+		workThread();
 	}
 
 	void workThread(){
@@ -794,6 +616,11 @@ private:
 				sub.run(state);
 		}
 		state.dispose();
+	}
+
+	void serial(){
+		GenericAlgo::algorithm(); //serial step
+		queue.close();
 	}
 
 	void processQueueItem(State&& s){
