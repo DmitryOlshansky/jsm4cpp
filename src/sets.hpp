@@ -125,7 +125,7 @@ class BitVec{
 	static void dispose(size_t* p){
 		free(p);
 	}
-	static void setPoolSize(size_t bytes){}
+	static void setPoolSize(){}
 #elif defined(USE_NEW_ALLOC)
 	static size_t* alloc(){
 		return new size_t[words];
@@ -140,7 +140,7 @@ class BitVec{
 			return;
 		delete[] p;
 	}
-	static void setPoolSize(size_t bytes){}
+	static void setPoolSize(){}
 #elif defined(USE_SHARED_POOL_ALLOC) 
 	static UniquePool pool;
 	static mutex* mut;
@@ -159,12 +159,28 @@ class BitVec{
 		lock_guard<mutex> guard(*mut);
 		pool->free(p);
 	}
-	static void setPoolSize(size_t bytes){
+	static void setPoolSize(){
 		lock_guard<mutex> guard(*mut);
-		pool = UniquePool(new Pool(bytes));
+		pool = UniquePool(new Pool(words*WORD_SIZE));
 	}
 #elif defined(USE_TLS_POOL_ALLOC)
-	
+	static __thread Pool* pool;
+	static size_t* alloc(){
+		if(!pool)
+			pool = new Pool(words*WORD_SIZE);
+		return (size_t*)pool->malloc();
+	}
+	static size_t* alloc_zero(){
+		size_t* p = alloc();
+		memset(p, 0, words*WORD_SIZE);
+		return p;
+	}
+	static void dispose(size_t* p){
+		if(!p)
+			return;
+		pool->free(p);
+	}
+	static void setPoolSize(){}
 #else
 	#error "Must use some allocator for sets."
 #endif
@@ -194,7 +210,7 @@ public:
 	static void setSize(size_t total){
 		length = total;
 		words = (length + BITS - 1) / BITS;
-		setPoolSize(words*WORD_SIZE);
+		setPoolSize();
 	}
 
 	BitVec():data(nullptr){}
