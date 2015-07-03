@@ -111,4 +111,6 @@ using BCbO = RecursiveCalls<GenericBCbO>;
 // Use normal CbO for parallel execution part, no need to queue items 
 using ParCbO = ForkJoin<GenericBCbO, CbO>;
 
-using FParCbO = ForkJoin<GenericBCbO, CbO>;
+using FParCbO = FairForkJoin<GenericBCbO, CbO>;
+
+using TPCbO = WithThreadPool<GenericBCbO, BCbO>;

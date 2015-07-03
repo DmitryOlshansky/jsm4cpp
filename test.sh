@@ -16,9 +16,10 @@ NAMES="bcbo fcbo inclose2 inclose3"
 # parallel names
 PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
 FPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/fp-\0/g')
+TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
 # 
-ALL="cbo $NAMES $PNAMES $FPNAMES"
-NOTCBO="$NAMES $PNAMES $FPNAMES"
+ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
+NOTCBO="$NAMES $PNAMES $FPNAMES $TPNAMES"
 
 for alg in $ALL
 do

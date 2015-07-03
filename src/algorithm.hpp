@@ -703,26 +703,97 @@ private:
 
 	// generic parallel algorithm using serialStep and base algorithm for each sub-task
 	void algorithm(){
+		chrono::duration<double> elapsed;
+		auto beg = chrono::high_resolution_clock::now();
 		GenericAlgo::algorithm(); //serial step
+		auto end = chrono::high_resolution_clock::now();
+		elapsed = end - beg;
+		// cerr << "Serial: " << elapsed.count() << endl;
 
 		// start of multi-threaded part
+		if(threads()){
+			size_t tpool_size = threads()-1;
+			vector<thread> trds(tpool_size);
+			beg = chrono::high_resolution_clock::now();
+			for (size_t t = 0; t < tpool_size; t++){
+				trds[t] = thread([this]{ workThread();	});
+			}
+			end = chrono::high_resolution_clock::now();
+			elapsed = end - beg;
+			workThread();
+			// cerr << "Starting threads took: " << elapsed.count() << endl;
+			for (auto & t : trds){
+				t.join();
+			}
+		}
+		else
+			workThread();
+	}
+
+	void processQueueItem(State&& s){
+		SchedulingCutoffStrategy::processQueueItem(this, s);
+	}
+
+	void workThread(){
+		State state;
+		state.extent = ExtSet::newEmpty();
+		state.intent = IntSet::newEmpty();
+		state.alloc(*this);
+		auto sub = fork<SerialAlgo>();
+		while (queue.pop(state)){
+			sub.run(state);
+		}
+		state.dispose();
+	}
+public:
+	void schedule(State&& state){
+		queue.push(move(state));
+	}
+
+};
+
+
+template<class GenericAlgo, class SerialAlgo>
+class WithThreadPool: public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
+public:
+	using State = typename GenericAlgo::State;
+	using GenericAlgo::GenericAlgo;
+private:
+	SharedQueue<State> queue;
+
+	void algorithm(){
 		vector<thread> trds(threads());
 		for (size_t t = 0; t < threads(); t++){
 			trds[t] = thread([this]{
-				State state;
-				state.extent = ExtSet::newEmpty();
-				state.intent = IntSet::newEmpty();
-				state.alloc(*this);
-				auto sub = fork<SerialAlgo>();
-				while (queue.pop(state)){
-					sub.run(state);
-				}
-				state.dispose();
+				workThread();
 			});
 		}
-		for (auto & t : trds){
+		mainThread();
+		for (auto & t : trds){ // join pooled threads
 			t.join();
 		}
+	}
+
+	void mainThread(){
+		chrono::duration<double> elapsed;
+		auto beg = chrono::high_resolution_clock::now();
+		GenericAlgo::algorithm(); //serial step
+		queue.close();
+		auto end = chrono::high_resolution_clock::now();
+		elapsed = end - beg;
+		cerr << "Serial: " << elapsed.count() << endl;
+	}
+
+	void workThread(){
+		State state;
+		state.extent = ExtSet::newEmpty();
+		state.intent = IntSet::newEmpty();
+		state.alloc(*this);
+		auto sub = fork<SerialAlgo>();
+		while (queue.pop(state)){
+				sub.run(state);
+		}
+		state.dispose();
 	}
 
 	void processQueueItem(State&& s){
@@ -734,46 +805,3 @@ public:
 	}
 
 };
-
-/*
-template<class GenericAlgo, class SerialAlgo>
-class WithThreadPool: public GenericAlgo, virtual public Algorithm, public SchedulingCutoffStrategy {	
-public:
-	using State = typename GenericAlgo::State;
-	using GenericAlgo::GenericAlgo;
-private:
-	SharedQueue<State> queue;
-
-	// generic parallel algorithm using serialStep and base algorithm for each sub-task
-	void algorithm(){
-		GenericAlgo::algorithm(); //serial step
-
-		// start of multi-threaded part
-		vector<thread> trds(threads());
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([this]{
-				State state;
-				state.extent = ExtSet::newEmpty();
-				state.intent = IntSet::newEmpty();
-				state.alloc(*this);
-				auto sub = fork<SerialAlgo>();
-				while (queue.pop(state)){
-					sub.run(state);
-				}
-				state.dispose();
-			});
-		}
-		for (auto & t : trds){
-			t.join();
-		}
-	}
-
-	void processQueueItem(State&& s){
-		SchedulingCutoffStrategy::processQueueItem(this, s);
-	}
-public:
-	void schedule(State&& state){
-		queue.push(move(state));
-	}
-
-};*/

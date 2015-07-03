@@ -72,3 +72,5 @@ using FCbO = RecursiveCalls<GenericFCbO>;
 using ParFCbO = ForkJoin<GenericFCbO, FCbO>;
 
 using FParFCbO = FairForkJoin<GenericFCbO, FCbO>;
+
+using TPFCbO = WithThreadPool<GenericFCbO, FCbO>;

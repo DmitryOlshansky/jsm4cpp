@@ -11,7 +11,7 @@ read_batch(){
 inotifywait -m -r src -e modify | while true; do
 	BUF=$(read_batch)
 	if [ "x$BUF" != "x" ] ; then
-		scons 2>&1 | head -40
+		scons --extent=bitset 2>&1 | head -40
 		echo "[REVOLVER] Done. Wating for new events."
 	fi
 done

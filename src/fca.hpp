@@ -38,7 +38,12 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 		{ "fp-bcbo", &make<FParCbO> },
 		{ "fp-fcbo", &make<FParFCbO> },
 		{ "fp-inclose2", &make<FParInClose2> },
-		{ "fp-inclose3", &make<FParInClose3> }
+		{ "fp-inclose3", &make<FParInClose3> },
+	// fair queue + fork-join
+		{ "tp-bcbo", &make<TPCbO> },
+		{ "tp-fcbo", &make<TPFCbO> },
+		{ "tp-inclose2", &make<TPInClose2> },
+		{ "tp-inclose3", &make<TPInClose3> }
 	};
 	for(auto& e : table){
 		if(name == e.name)
