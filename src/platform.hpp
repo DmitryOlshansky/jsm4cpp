@@ -146,7 +146,7 @@ public:
 
 class SimpleIntWriter {
 public:
-	SimpleIntWriter(){}
+	SimpleIntWriter(size_t max){}
 	void write(size_t val, Buffer& buf){
 		char tmp[16];
 		int cnt = sprintf(tmp, "%u", (unsigned) val);

@@ -45,6 +45,7 @@ int main(int argc, char* argv[])
 	size_t par_level = 2;
 	size_t verbose = 1;
 	size_t min_support = 0;
+	bool sort = false;
 	int i = 1;
 	for (; i < argc && argv[i][0] == '-'; i++){
 		switch (argv[i][1]){
@@ -57,6 +58,11 @@ int main(int argc, char* argv[])
 			}
 			if (verbose == 2)
 				cerr << "Using algorithm " << arg << endl;
+			break;
+		case 's':
+			if(strcmp(argv[i], "-sort") != 0)
+				goto L_unrecognized;
+			sort = true;
 			break;
 		case 'm':
 			// minimal support
@@ -72,40 +78,35 @@ int main(int argc, char* argv[])
 			par_level = atoi(argv[i] + 2);
 			break;
 		default:
+		L_unrecognized:
 			cerr << "Unrecognized option: " << argv[i] << endl;
+			exit(1);
 		}
 	}
 	argv = argv + i;
 	argc = argc - i;
 	if (!alg){
 		cerr << "Algorithm not specified" << endl;
-		cerr << "Usage ./gen -a<algorithm> [-v<verbosity>] [-L<par-level>] [-t<num-threads>]" << endl;
+		cerr << "Usage ./gen -a<algorithm> [-sort] [-v<verbosity>] [-L<par-level>] [-t<num-threads>]" << endl;
 		return 1;
 	}
-	chrono::duration<double> elapsed;
-	{
-		alg->verbose(verbose).threads(num_threads)
-			.parLevel(par_level).minSupport(min_support);
-		if (argc > 0){
-			in_file.open(argv[0]);
-			if (!alg->loadFIMI(in_file)){
-				cerr << "Failed to load any data.\n";
-				return 1;
-			}
-		}
-		else if (!alg->loadFIMI(cin)){
+	alg->verbose(verbose).threads(num_threads)
+		.parLevel(par_level).minSupport(min_support);
+	if (argc > 0){
+		in_file.open(argv[0]);
+		if (!alg->loadFIMI(in_file)){
 			cerr << "Failed to load any data.\n";
 			return 1;
 		}
-		if (argc > 1){
-			out_file.open(argv[1]);
-			alg->output(out_file);
-		}
-		auto beg = chrono::high_resolution_clock::now();
-		alg->run();
-		auto end = chrono::high_resolution_clock::now();
-		elapsed = end - beg;
 	}
-	cerr << "Time: " << elapsed.count() << endl;
+	else if (!alg->loadFIMI(cin)){
+		cerr << "Failed to load any data.\n";
+		return 1;
+	}
+	if (argc > 1){
+		out_file.open(argv[1]);
+		alg->output(out_file);
+	}
+	measure([&]{ alg->run(); }, "Time: ", verbose > 0);
 	return 0;
 }

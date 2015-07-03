@@ -27,6 +27,14 @@ using ExtSet = BitVec<0>;
 using IntSet = BitVec<1>;
 using CompIntSet = CompressedSet<IntSet>;
 
+#if defined(USE_TABLE_WRITER)
+	using IntWriter = TabledIntWriter;
+#elif  defined(USE_SIMPLE_WRITER)
+	using IntWriter = SimpleIntWriter;
+#else
+	#error "Must define one of legal USE_xxx_WRITER"
+#endif
+
 class Algorithm {
 private:
 	IntSet* rows; // attributes of objects
@@ -40,14 +48,7 @@ private:
 	ostream* diag_;
 	Buffer buf;
 	shared_ptr<mutex> output_mtx;
-#if defined(USE_TABLE_WRITER)
-	shared_ptr<TabledIntWriter> writer;
-#elif  defined(USE_SIMPLE_WRITER)
-	shared_ptr<SimpleIntWriter> writer;
-#else
-	#error "Must define one of legal USE_xxx_WRITER"
-	Error writer;
-#endif
+	shared_ptr<IntWriter> writer;
 	//
 	size_t verbose_;
 	size_t par_level_;
@@ -271,7 +272,7 @@ public:
 				row(i).add(revMapping[val]);
 			}
 		}
-		writer = make_shared<TabledIntWriter>(attributes());
+		writer = make_shared<IntWriter>(attributes());
 		return true;
 	}
 
@@ -467,23 +468,27 @@ private:
 	// generic parallel algorithm using serialStep and base algorithm for each sub-task
 	void algorithm(){
 		queues = vector<queue<State>>(threads());
-		GenericAlgo::algorithm(); //serial step
+		measure([&]{
+			serial(); //serial step
+		}, "Serial", verbose() > 1);
 
 		// start of multi-threaded part
 		vector<thread> trds(threads());
-		for (size_t t = 0; t < threads(); t++){
-			trds[t] = thread([this, t]{
-				State state;
-				state.extent = ExtSet::newEmpty();
-				state.intent = IntSet::newEmpty();
-				state.alloc(*this);
-				auto sub = fork<SerialAlgo>();
-				while (extract(t, state)){
-					sub.run(state);
-				}
-				state.dispose();
-			});
-		}
+		measure([&]{
+			for (size_t t = 0; t < threads(); t++){
+				trds[t] = thread([this, t]{
+					State state;
+					state.extent = ExtSet::newEmpty();
+					state.intent = IntSet::newEmpty();
+					state.alloc(*this);
+					auto sub = fork<SerialAlgo>();
+					while (extract(t, state)){
+						sub.run(state);
+					}
+					state.dispose();
+				});
+			}
+		}, "Starting threads", verbose() > 1);
 		for (auto & t : trds){
 			t.join();
 		}
@@ -499,6 +504,11 @@ private:
 		q.pop();
 		return true;
 	}
+	
+	void serial(){
+		GenericAlgo::algorithm();
+	}
+
 	void processQueueItem(State&& s){
 		SchedulingCutoffStrategy::processQueueItem(this, s);
 	}
