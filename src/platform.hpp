@@ -33,15 +33,28 @@ void measure(Fn&& fn, const char* msg, bool condition=true){
 // Only complete (committed) records would be ever written to the stream
 class Buffer {
 	char *buf;
-	size_t size; // buffer size
+	size_t size_; // buffer size
 	size_t cur; // current position
 	size_t committed; // last committed position
 	ostream* out_;
 	shared_ptr<mutex> mut_;
 	Buffer(const Buffer&)=delete;
+	
+	size_t waterMark()const{ // size to flush
+		return (size_ * 7 + 7) / 8; // round properly, flush at least 7/8th of buffer
+	}
+	void accomodate(size_t requested){
+		// flush if meets water mark limit
+		if(committed > waterMark()) // buffer should be large enough to hold ~64 records
+			flush();
+		// by now cur is adjusted if flushed
+		while(cur + requested > size_) 
+			size_ = (size_ * 3 + 1)/ 2; // scale uniformly
+		buf = (char*)realloc(buf, size_);
+	}
 public:
-	Buffer(ostream& out, size_t sz): 
-		 buf((char*)malloc(sz)), size(sz), cur(0), committed(0), out_(&out), 
+	Buffer(ostream& out, size_t sz=32): 
+		 buf((char*)malloc(sz)), size_(sz), cur(0), committed(0), out_(&out), 
 		 mut_(make_shared<mutex>()){}
 	//
 	Buffer& sync(Buffer& b){
@@ -50,7 +63,7 @@ public:
 	// move over and null-ptr the buffer
 	Buffer(Buffer&& b){
 		buf = b.buf;
-		size = b.size;
+		size_ = b.size_;
 		cur = b.cur;
 		committed = b.committed;
 		out_ = b.out_;
@@ -58,24 +71,15 @@ public:
 	}
 	// place c into buffer
 	void put(char c){
-		if(cur == size){
-			if(committed > size * 63 / 64) // buffer should be large enough to hold ~64 records
-				flush();
-			else
-				buf = (char*)realloc(buf, size*3/2);
+		if(cur == size_){
+			accomodate(1);
 		}
 		buf[cur++] = c;
 	}
 	// place len bytes from data
 	void put(char* data, size_t len){
-		if(cur + len > size){
-			if(committed > size * 63 / 64) // buffer should be large enough to hold ~64 records
-				flush();
-			else {
-				while(cur + len > size)
-					size = size * 3 / 2;
-				buf = (char*)realloc(buf, size);
-			}
+		if(cur + len > size_){
+			accomodate(len);
 		}
 		memcpy(buf+cur, data, len);
 		cur += len;
@@ -95,6 +99,22 @@ public:
 		cur = committed;
 		return *this;
 	}
+	// reset buffer's size, won't go below currently commited size
+	void resize(size_t sz){
+		if(sz > size_){
+			size_ = sz;
+			buf = (char*)realloc(buf, size_);
+		}
+		else if(sz > 4 && sz < (1<<28)){ // prevent epicly silly sizes
+			flush();
+			if(committed < sz){
+				size_ = sz;
+				buf = (char*)realloc(buf, size_);
+			}
+		}
+
+	}
+	size_t size()const{	return size_; }
 	// ends one "record" - atomic unit of data
 	Buffer& commit(){
 		committed = cur;
@@ -108,7 +128,7 @@ public:
 				out_->write(buf, committed);
 			}
 			// memmove - may overlap
-			memmove(buf, buf+committed, size - committed);
+			memmove(buf, buf+committed, size_ - committed);
 			cur -= committed;
 			committed = 0;
 		}

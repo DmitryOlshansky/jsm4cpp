@@ -43,10 +43,6 @@ using namespace std;
 	#error "Must define one of legal USE_xxx_WRITER"
 #endif
 
-#ifndef IO_BUFFER_SIZE
-	#error "Must define IO_BUFFER_SIZE"
-#endif
-
 using CompIntSet = CompressedSet<IntSet>;
 
 class Algorithm {
@@ -127,7 +123,7 @@ public:
 
 	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0),
 		output_mtx(make_shared<mutex>()), 
-		buf(cout, IO_BUFFER_SIZE), diag_(&cerr), 
+		buf(cout), diag_(&cerr), 
 		verbose_(false), threads_(0), par_level_(0){}
 
 	Algorithm(Algorithm&& algo):
@@ -189,6 +185,14 @@ public:
 	Algorithm& parLevel(size_t par_lvl){
 		par_level_ = par_lvl;
 		return *this;
+	}
+	// Get/set IO buffer size
+	Algorithm& bufferSize(size_t sz){
+		buf.resize(sz);
+		return *this;
+	}
+	size_t bufferSize()const{
+		return buf.size();
 	}
 
 	// Get/set ostream for output

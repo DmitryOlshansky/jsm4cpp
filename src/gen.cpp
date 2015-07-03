@@ -45,6 +45,7 @@ int main(int argc, char* argv[])
 	size_t par_level = 2;
 	size_t verbose = 1;
 	size_t min_support = 0;
+	size_t buf_size = 32; // no worries, going to adaptively resize anyway
 	bool sort = false;
 	int i = 1;
 	for (; i < argc && argv[i][0] == '-'; i++){
@@ -56,8 +57,9 @@ int main(int argc, char* argv[])
 			if (!alg){
 				cerr << "No such algorithm " << arg << endl;
 			}
-			if (verbose == 2)
-				cerr << "Using algorithm " << arg << endl;
+			break;
+		case 'b':
+			buf_size = atoi(argv[i] + 2);
 			break;
 		case 's':
 			if(strcmp(argv[i], "-sort") != 0)
@@ -87,11 +89,16 @@ int main(int argc, char* argv[])
 	argc = argc - i;
 	if (!alg){
 		cerr << "Algorithm not specified" << endl;
-		cerr << "Usage ./gen -a<algorithm> [-sort] [-v<verbosity>] [-L<par-level>] [-t<num-threads>]" << endl;
+		cerr << "Usage ./gen -a<algorithm> [-sort] [-b<io_buf_size_in_bytes>] [-v<verbosity>] [-L<par-level>] [-t<num-threads>]" << endl;
 		return 1;
 	}
+	if (verbose > 1){
+		cerr << "Using algorithm " << arg << endl;
+		cerr << "IO buffer size " << buf_size << endl;
+	}
 	alg->verbose(verbose).threads(num_threads)
-		.parLevel(par_level).minSupport(min_support);
+		.parLevel(par_level).minSupport(min_support)
+		.bufferSize(buf_size);
 	if (argc > 0){
 		in_file.open(argv[0]);
 		if (!alg->loadFIMI(in_file)){
@@ -108,5 +115,8 @@ int main(int argc, char* argv[])
 		alg->output(out_file);
 	}
 	measure([&]{ alg->run(); }, "Time: ", verbose > 0);
+	if (verbose > 1){
+		cerr << "Final IO buffer size " << alg->bufferSize() << endl;
+	}
 	return 0;
 }

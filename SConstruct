@@ -1,7 +1,6 @@
 env = Environment()
 
 AddOption('--alloc', dest='alloc', type='string', help='kind of allocator to use for sets')
-AddOption('--buffer-size', dest='buffer_size', type='int', help='size of I/O buffer in bytes')
 AddOption('--extent', dest='extent', type='string', help='type of set to use for extents')
 AddOption('--intent', dest='intent', type='string', help='type of set to use for intents')
 AddOption('--release', dest='release', action='store_true', help='release build')
@@ -43,12 +42,6 @@ select('extent', extentTab)
 select('intent', intentTab)
 select('writer', writerTab)
 alloc = GetOption('alloc')
-buffer_size = GetOption('buffer_size')
-if not buffer_size:
-	print "--buffer-size parameter is required."
-	exit(1)
-flags += " -DIO_BUFFER_SIZE=%d" % buffer_size
-
 if  alloc == 'tls-pool' or alloc == 'shared-pool':
 	libs = ["boost_system"]
 release = GetOption('release')
