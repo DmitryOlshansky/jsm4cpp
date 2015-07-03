@@ -43,6 +43,10 @@ using namespace std;
 	#error "Must define one of legal USE_xxx_WRITER"
 #endif
 
+#ifndef IO_BUFFER_SIZE
+	#error "Must define IO_BUFFER_SIZE"
+#endif
+
 using CompIntSet = CompressedSet<IntSet>;
 
 class Algorithm {
@@ -123,7 +127,7 @@ public:
 
 	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0),
 		output_mtx(make_shared<mutex>()), 
-		buf(cout, 32*1024), diag_(&cerr), 
+		buf(cout, IO_BUFFER_SIZE), diag_(&cerr), 
 		verbose_(false), threads_(0), par_level_(0){}
 
 	Algorithm(Algorithm&& algo):
