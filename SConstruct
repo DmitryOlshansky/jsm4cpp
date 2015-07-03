@@ -8,6 +8,7 @@ AddOption('--suffix', dest='suffix', type='string', help='suffix to append to re
 AddOption('--writer', dest='writer', type='string', help='type of integer writer to use for I/O')
 
 flags = ""
+libs = []
 allocTab = {
 	'malloc': "-DUSE_MALLOC_ALLOC",
 	'new': "-DUSE_NEW_ALLOC",
@@ -40,7 +41,9 @@ select('alloc', allocTab)
 select('extent', extentTab)
 select('intent', intentTab)
 select('writer', writerTab)
-
+alloc = GetOption('alloc')
+if  alloc == 'tls-pool' or alloc == 'shared-pool':
+	libs = ["boost_system"]
 release = GetOption('release')
 suffix = GetOption('suffix')
 suffix = "" if suffix == None else "-%s" % suffix
@@ -52,7 +55,7 @@ elif env['CXX'] == 'g++' or env['CXX'] == 'clang++':
 		env.Append(CCFLAGS="-Ofast -DNDEBUG -std=c++11 -pthread"+flags)
 	else:
 		env.Append(CCFLAGS="-g -std=c++11 -pthread"+flags)
-	env.Append(LIBS=["pthread"])
+	env.Append(LIBS=["pthread"]+libs)
 
 env.Program('gen'+suffix, ['src/gen.cpp', 'src/sets.cpp'])
 env.Program('jsm'+suffix, ['src/jsm.cpp', 'src/sets.cpp'])

@@ -13,19 +13,27 @@
 using namespace std;
 //TODO: add min_support filtering for InClose algorithms!
 /**
-	Algorithm is parametrized by 2 Set implementations.
-	One is used for intents and the other for extents.
+	Algorithm is parametrized by:
+		- 2 Set implementations (Extent/Intent)
+		- Writer implementation
+	At a deeper level sets are parametrized by allocator type.
+	Set objects typically amount to >97% of all allocations.
 */
 #if defined(USE_LINEAR_EXT)
-using ExtSet = LinearSet;
+	using ExtSet = LinearSet;
 #elif defined(USE_BIT_EXT)
-using ExtSet = BitVec<0>;
+	using ExtSet = BitVec<0>;
 #else
-#error "Must use some imlementation for Extent!"
+	#error "Must use some implementation for Extent!"
 #endif
 
-using IntSet = BitVec<1>;
-using CompIntSet = CompressedSet<IntSet>;
+#if defined(USE_LINEAR_INT)
+	using IntSet = LinearSet;
+#elif defined(USE_BIT_INT)
+	using IntSet = BitVec<1>;
+#else
+	#error "Must use some implementation for Intent!"
+#endif
 
 #if defined(USE_TABLE_WRITER)
 	using IntWriter = TabledIntWriter;
@@ -34,6 +42,8 @@ using CompIntSet = CompressedSet<IntSet>;
 #else
 	#error "Must define one of legal USE_xxx_WRITER"
 #endif
+
+using CompIntSet = CompressedSet<IntSet>;
 
 class Algorithm {
 private:

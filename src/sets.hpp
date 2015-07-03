@@ -16,6 +16,13 @@
 #include <ostream>
 #include <memory>
 
+#if defined(USE_SHARED_POOL_ALLOC) || defined(USE_TLS_POOL_ALLOC)
+	#include <mutex>
+	#include <boost/pool/pool.hpp>
+	using Pool = boost::pool<>;
+	using UniquePool = std::unique_ptr<Pool>;
+#endif
+
 using namespace std;
 
 #define BIT ((size_t)1)
@@ -106,6 +113,62 @@ class BitVec{
 	size_t* data;
 	//
 	explicit BitVec(size_t* ptr) : data(ptr){}
+
+
+#if defined(USE_MALLOC_ALLOC)
+	static size_t* alloc(){
+		return (size_t*)malloc(words*sizeof(size_t));
+	}
+	static size_t* alloc_zero(){
+		return (size_t*)calloc(words, WORD_SIZE);
+	}
+	static void dispose(size_t* p){
+		free(p);
+	}
+	static void setPoolSize(size_t bytes){}
+#elif defined(USE_NEW_ALLOC)
+	static size_t* alloc(){
+		return new size_t[words];
+	}
+	static size_t* alloc_zero(){
+		size_t* p =  new size_t[words];
+		memset(p, 0, words*WORD_SIZE);
+		return p;
+	}
+	static void dispose(size_t* p){
+		if(!p)
+			return;
+		delete[] p;
+	}
+	static void setPoolSize(size_t bytes){}
+#elif defined(USE_SHARED_POOL_ALLOC) 
+	static UniquePool pool;
+	static mutex* mut;
+	static size_t* alloc(){
+		lock_guard<mutex> guard(*mut);
+		return (size_t*)pool->malloc();
+	}
+	static size_t* alloc_zero(){
+		size_t* p = alloc();
+		memset(p, 0, words*WORD_SIZE);
+		return p;
+	}
+	static void dispose(size_t* p){
+		if(!p)
+			return;
+		lock_guard<mutex> guard(*mut);
+		pool->free(p);
+	}
+	static void setPoolSize(size_t bytes){
+		lock_guard<mutex> guard(*mut);
+		pool = UniquePool(new Pool(bytes));
+	}
+#elif defined(USE_TLS_POOL_ALLOC)
+	
+#else
+	#error "Must use some allocator for sets."
+#endif
+
 	//
 public:
 	// allocate array of sets, permanently (don't try to delete this array!)
@@ -119,11 +182,11 @@ public:
 	}
 	//
 	static BitVec newEmpty(){
-		return BitVec((size_t*)calloc(words, WORD_SIZE));
+		return BitVec(alloc_zero());
 	}
 	//
 	static BitVec newFull(){
-		BitVec vec((size_t*)malloc(words*sizeof(size_t)));
+		BitVec vec(alloc());
 		vec.setAll();
 		return vec;
 	}
@@ -131,6 +194,7 @@ public:
 	static void setSize(size_t total){
 		length = total;
 		words = (length + BITS - 1) / BITS;
+		setPoolSize(words*WORD_SIZE);
 	}
 
 	BitVec():data(nullptr){}
@@ -277,7 +341,7 @@ public:
 	}
 
 	~BitVec(){
-		free(data);// free is safe on nullptr
+		dispose(data);// dispose must be safe on nullptr
 	}
 };
 
