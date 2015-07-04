@@ -26,14 +26,17 @@ do
     echo $alg
     # TODO: -m2 - min support tests
     # Piping to sort here *does* have nagative effect on 
-    # performance due to I/O happening in 32K+ batches
+    # performance due to I/O happening in batches
     time $CMD "-a$alg" -v1 -L0 -t4 $1  > "$OUT/$alg-$1"
 done
-
-sort "$OUT/cbo-$1" > "$OUT/cbo-$1-sorted"
-for alg in $NOTCBO
+time ./fcbo < $1 > "$OUT/orig-fcbo-$1"
+time ./pcbo -P4 -L1 < $1 > "$OUT/orig-pcbo-$1"
+#first sort numbers in each line;  remove last blank line then sort lines
+./datanorm < "$OUT/orig-fcbo-$1" | sed '/^$/d' | sort > "$OUT/orig-fcbo-$1-sorted"
+./datanorm < "$OUT/orig-pcbo-$1" | sed '/^$/d' | sort > "$OUT/orig-pcbo-$1-sorted"
+for alg in $ALL
 do
-	sort "$OUT/$alg-$1" > "$OUT/$alg-$1-sorted"
-    diff --brief "$OUT/cbo-$1-sorted" "$OUT/$alg-$1-sorted"
+    ./datanorm < "$OUT/$alg-$1"  | sort > "$OUT/$alg-$1-sorted"
+    diff --brief "$OUT/orig-fcbo-$1-sorted" "$OUT/$alg-$1-sorted"
 done
 

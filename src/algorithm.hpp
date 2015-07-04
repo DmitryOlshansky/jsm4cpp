@@ -332,21 +332,21 @@ public:
 	*/
 	bool closeConcept(ExtSet& A, size_t y, ExtSet& C, IntSet& D){
 		size_t cnt = 0;
-		cerr << "y = " << y << endl;
+		//cerr << "y = " << y << endl;
 		A.each([&](size_t i){
 			if (row(i).has(y)){
-				cerr << "+++ ";
+				/*cerr << "+++ ";
 				printSet(row(i),cerr);
-				cerr << endl;
+				cerr << endl;*/
 				C.add(i);
 				D.intersect(row(i));
 
 				cnt++;
 			}
 		});
-		cerr << "=== ";
+		/*cerr << "=== ";
 		printSet(D,cerr);
-		cerr << endl;
+		cerr << endl;*/
 		stats.closures++;
 		return cnt >= minSupport();
 	}

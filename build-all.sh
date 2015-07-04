@@ -11,7 +11,7 @@ binary_suffix(){
 }
 
 build(){
-	scons --extent=$1 --intent=$2 --writer=$3 --alloc=$4 --release --suffix=$(binary_suffix $1 $2 $3 $4)
+	scons --extent=$1 --intent=$2 --writer=$3 --alloc=$4 --release
 }
 
 
@@ -25,7 +25,7 @@ done
 
 for EXT in ${EXTENTS[@]} ; do
 	for INT in ${INTENTS[@]}; do
-		build $EXT $INT $WRT malloc
+		build $EXT $INT table malloc
 	done
 done
 
