@@ -1,0 +1,36 @@
+#!/bin/bash
+NAMES="bcbo fcbo inclose2 inclose3"
+# parallel names
+PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
+FPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/fp-\0/g')
+TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
+# 
+ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
+
+EXTENTS=(bitset linear tree) # TODO: hashset
+INTENTS=(bitset linear tree) # might not be the same as extents
+WRITERS=(table simple)
+ALLOCS=(malloc shared-pool tls-pool)
+
+# gen-extent-intent-writer-alloc
+#      $1      $2     $3    $4
+binary_suffix(){
+	echo "${1:0:3}-${2:0:3}-${3:0:3}-${4:0:1}"
+}
+
+# gen-extent-intent-writer-alloc  algos  flags target-files ...
+#      $1      $2     $3    $4      $5     $6     $7
+# Output: time(s),mem(kb), {x algos} \n
+run_to_csv(){
+	local bin=gen-$(binary_suffix $1 $2 $3 $4)
+	local ALGOS="$5"
+	shift 5
+	for algo in $ALGOS ; do
+		#TODO: tmp name?
+		#TODO: smallest of 3 runs
+		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
+		ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')
+		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
+		echo -n "$ELAPSED,$KB,"
+	done
+}

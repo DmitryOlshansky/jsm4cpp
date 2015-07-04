@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
 		out_file.open(argv[1]);
 		alg->output(out_file);
 	}
-	measure([&]{ alg->run(); }, "Time: ", verbose > 0);
+	measure([&]{ alg->run(); }, "Time", verbose > 0);
 	if (verbose > 1){
 		cerr << "Final IO buffer size " << alg->bufferSize() << endl;
 	}
