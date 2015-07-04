@@ -15,5 +15,7 @@ template<> size_t BitVec<1>::length = 0;
 	template<> __thread Pool* BitVec<0>::pool = nullptr;
 	template<> __thread Pool* BitVec<1>::pool = nullptr;
 #endif
+
 size_t LinearSet::total;
 
+size_t TreeSet::total;

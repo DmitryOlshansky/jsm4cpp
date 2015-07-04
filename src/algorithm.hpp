@@ -23,6 +23,8 @@ using namespace std;
 	using ExtSet = LinearSet;
 #elif defined(USE_BIT_EXT)
 	using ExtSet = BitVec<0>;
+#elif defined(USE_TREE_EXT)
+	using ExtSet = TreeSet;
 #else
 	#error "Must use some implementation for Extent!"
 #endif
@@ -31,6 +33,8 @@ using namespace std;
 	using IntSet = LinearSet;
 #elif defined(USE_BIT_INT)
 	using IntSet = BitVec<1>;
+#elif defined(USE_TREE_INT)
+	using IntSet = TreeSet;
 #else
 	#error "Must use some implementation for Intent!"
 #endif
@@ -328,13 +332,21 @@ public:
 	*/
 	bool closeConcept(ExtSet& A, size_t y, ExtSet& C, IntSet& D){
 		size_t cnt = 0;
+		cerr << "y = " << y << endl;
 		A.each([&](size_t i){
 			if (row(i).has(y)){
+				cerr << "+++ ";
+				printSet(row(i),cerr);
+				cerr << endl;
 				C.add(i);
 				D.intersect(row(i));
+
 				cnt++;
 			}
 		});
+		cerr << "=== ";
+		printSet(D,cerr);
+		cerr << endl;
 		stats.closures++;
 		return cnt >= minSupport();
 	}
@@ -343,7 +355,6 @@ public:
 	// true - if produced extent is identical
 	bool filterExtent(ExtSet& A, size_t y, ExtSet& C){
 		bool ret = true;
-		//C.clearAll();
 		A.each([&](size_t i){
 			if (row(i).has(y)){
 				C.add(i);
@@ -356,7 +367,6 @@ public:
 
 	// Close intent over extent C, up to y 
 	void partialClosure(ExtSet& C, size_t y, IntSet& D){
-		//D.setAll();
 		C.each([&](size_t i){
 			D.intersect(row(i), y);
 		});
