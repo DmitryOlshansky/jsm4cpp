@@ -57,7 +57,7 @@ suffix = var_name if suffix == None else "-%s" % suffix
 
 if env['CXX'] == 'cl':
     env.Append(CCFLAGS="/EHsc "+flags)
-elif env['CXX'] == 'g++' or env['CXX'] == 'clang++':
+elif 'g++' in env['CXX'] or 'clang++' in env['CXX']:
 	if release:
 		env.Append(CCFLAGS="-Ofast -DNDEBUG -std=c++11 -pthread"+flags)
 	else:
