@@ -59,6 +59,7 @@ public:
 	//
 	Buffer& sync(Buffer& b){
 		mut_ = b.mut_;
+		return *this;
 	}
 	// move over and null-ptr the buffer
 	Buffer(Buffer&& b){

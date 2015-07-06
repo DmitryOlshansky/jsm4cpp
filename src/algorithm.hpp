@@ -433,6 +433,7 @@ struct ExtendedState {
 			implied = state.implied;
 			state.implied = nullptr;
 		}
+		return *this;
 	}
 
 	// allocate new stack for implied errors 

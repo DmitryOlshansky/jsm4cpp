@@ -6,7 +6,7 @@ AddOption('--intent', dest='intent', type='string', help='type of set to use for
 AddOption('--release', dest='release', action='store_true', help='release build')
 AddOption('--suffix', dest='suffix', type='string', help='override a suffix to append to resulting binaries <name>-<suffix>')
 AddOption('--writer', dest='writer', type='string', help='type of integer writer to use for I/O')
-
+AddOption('--cxx', dest='cxx', type='string', help='c++ compiler to use')
 flags = ""
 libs = []
 var_name=""
@@ -48,6 +48,9 @@ select('alloc', allocTab)
 alloc = GetOption('alloc')
 if  alloc == 'tls-pool' or alloc == 'shared-pool':
 	libs = ["boost_system"]
+cxx = GetOption('cxx')
+if cxx: # C++ compiler override
+	env['CXX'] = cxx
 release = GetOption('release')
 suffix = GetOption('suffix')
 suffix = var_name if suffix == None else "-%s" % suffix
