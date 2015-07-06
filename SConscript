@@ -1,5 +1,5 @@
 Import('env', 'suffix')
 gen = env.Program('gen'+suffix, ['src/gen.cpp', 'src/sets.cpp'])
-jsm = env.Program('jsm'+suffix, ['src/jsm.cpp', 'src/sets.cpp'])
-jsm_classify = env.Program('jsm_classify'+suffix, ['src/jsm_classify.cpp', 'src/sets.cpp'])
+env.Program('jsm', ['src/jsm.cpp', 'src/sets.cpp'])
+env.Program('jsm_classify', ['src/jsm_classify.cpp', 'src/sets.cpp'])
 Default(gen)
