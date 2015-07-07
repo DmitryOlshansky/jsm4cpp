@@ -28,7 +28,7 @@ run_to_csv(){
 	for algo in $ALGOS ; do
 		#TODO: tmp name?
 		#TODO: smallest of 3 runs
-		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
+		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo -t4 -L1 $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
 		ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')
 		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
 		echo -n "$ELAPSED,$KB,"
