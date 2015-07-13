@@ -62,6 +62,6 @@ elif 'g++' in env['CXX'] or 'clang++' in env['CXX']:
 		env.Append(CCFLAGS="-Ofast -DNDEBUG -std=c++11 -pthread"+flags)
 	else:
 		env.Append(CCFLAGS="-g -std=c++11 -pthread"+flags)
-	env.Append(LIBS=["pthread"]+libs)
+	env.Append(LIBS=["pthread"]+libs, LINKFLAGS="-Wl,--no-as-needed")
 
 SConscript(dirs='.', variant_dir="build/stage"+var_name, duplicate=False, exports=["env", "suffix"])
