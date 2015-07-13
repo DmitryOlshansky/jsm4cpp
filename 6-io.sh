@@ -23,20 +23,11 @@ produce_file(){
 	)  > $2 
 }
 
-# objects attrs density
-produce_all_files(){
-	mkdir -p out-io-csv
-	name="$1-$2-$3"
-	for dat in $(pick_datasets $1 $2 $3 out-io) ; do
-		N=$(dataset_sample_number $dat)
-		produce_file $dat out-io-csv/io-tab-$name-$N.csv table
-		produce_file $dat out-io-csv/io-sim-$name-$N.csv simple
-	done
-}
-
 # entry point 
 mkdir -p out-1-io
 for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
+	name=`dataset_name $tripple`
 	make_random_datasets $SAMPLES $tripple "out-io"
-	produce_all_files $tripple
+	apply_to_datasets $tripple out-io out-io-csv/io-tab-$name-%s.csv produce_file simple
+	apply_to_datasets $tripple out-io out-io-csv/io-tab-$name-%s.csv produce_file table
 done

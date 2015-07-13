@@ -61,3 +61,28 @@ pick_datasets(){
 dataset_sample_number(){
 	echo -n $dat | sed -r 's/.*\/[0-9]*-[0-9]*-[0-9.]*-(.*).dat/\1/'
 }
+
+# a file name part of objects-attrs-density
+dataset_name(){
+	printf "%s-%s-%s" $1 $2 $3
+}
+
+# functional style for each applied to a random data sets
+# cmd assumed to accept arguments: <input-file> <output-file> <extra-args>
+# <objects> <attrs> <density> <dir> <cmd> <extra cmd args>
+apply_to_datasets(){
+	local tripple="$1 $2 $3"
+	local name="$1-$2-$3"
+	local dir=$4
+	shift 4
+	local pattern="$1"
+	local cmd="$2"
+	shift 2
+	for dat in $(pick_datasets $tripple $dir) ; do
+		N=$(dataset_sample_number $dat)
+		local target=$(printf $pattern $N)
+		DIR=`echo -n $target | sed -r 's|(.*)/.*|\1|'`
+		mkdir -p $DIR # make dir tree to target
+		"$cmd" $dat $target $@
+	done
+}

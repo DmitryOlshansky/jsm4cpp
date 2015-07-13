@@ -10,7 +10,7 @@ produce_line(){
 	echo
 }
 
-# $1 - name, $2 - input files
+# $1 - name, $2 - input files, $3 - output file
 produce_file(){
 	local name="$1"
 	shift 1
@@ -22,9 +22,18 @@ produce_file(){
 		for f in $inps; do
 			produce_line "$ext" "$f"
 		done 
-		) > "4-$ext-bitset-$name.csv"
+		) > "$ext-bitset-$name.csv"
 	done
 }
+
+
+# entry point 
+mkdir -p out-1-io
+for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
+	make_random_datasets $SAMPLES $tripple "out-io"
+	produce_all_files $tripple
+done
+
 
 produce_file attrs exps/a*
 produce_file objects exps/o*
