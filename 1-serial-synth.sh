@@ -18,7 +18,7 @@ produce_file(){
 	for ext in bitset linear ; do
 		(
 		echo -n "#$name,"
-		echo "$ALGOS" | sed 's/ /,,/g'
+		echo "$ALGOS" | sed 's/ /,---,/g'
 		for f in $inps; do
 			produce_line "$ext" "$f"
 		done 

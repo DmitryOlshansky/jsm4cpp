@@ -2,7 +2,7 @@ import std.algorithm, core.bitop, std.conv, std.exception, std.math, std.random,
 	std.range, std.string, std.stdio, std.traits;
 
 immutable double stochasticError = 1e-3;
-immutable maxK = 100; // first Uk-s to comput
+immutable maxK = 100; // first Uk-s to compute
 
 void process(File inp, string filename){
 	size_t[] counts; // aggregated object counts per attribute

@@ -3,7 +3,8 @@
 *.lo
 *.o
 *.obj
-gen-[^.]*
+*.csv
+gen-*
 out/*.dat
 
 # Precompiled Headers

@@ -1,4 +1,3 @@
-#!/bin/bash
 NAMES="bcbo fcbo inclose2 inclose3"
 # parallel names
 PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
@@ -6,7 +5,7 @@ FPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/fp-\0/g')
 TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
 # 
 ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
-
+SERIAL="cbo $NAMES"
 EXTENTS=(bitset linear tree) # TODO: hashset
 INTENTS=(bitset linear tree) # might not be the same as extents
 WRITERS=(table simple)
@@ -33,4 +32,32 @@ run_to_csv(){
 		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
 		echo -n "$ELAPSED,$KB,"
 	done
+}
+
+
+# generate a bunch of random datasets using format of dir/objects-attrs-density-<id>.dat
+# <# of samples> <objects> <attrs> <density - float> <dir>
+make_random_datasets(){
+	local samples="$1"
+	local objects="$2"
+	local attrs="$3"
+	local density="$4"
+	local prefix="$5"
+	mkdir -p $prefix
+	local i=0
+	while [ $i -lt $samples ] ; do
+		./datagen $objects $attrs $density > "$prefix/$objects-$attrs-$density-$i.dat"
+		let i=$i+1
+	done
+}
+
+# get a list of datasets for <objects> <attrs> <density in %> [<prefix>] if were generated
+pick_datasets(){
+	local prefix="$4"
+	echo $prefix/$1-$2-$3-*.dat
+}
+
+# file name of generated dataset --> number of sample
+dataset_sample_number(){
+	echo -n $dat | sed -r 's/.*\/[0-9]*-[0-9]*-[0-9.]*-(.*).dat/\1/'
 }

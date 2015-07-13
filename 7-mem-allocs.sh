@@ -17,5 +17,5 @@ echo "$ALGOS" | sed 's/ /,,/g'
 for ALOC in ${ALLOCS[@]} ; do
 	produce_line "$ALOC" data1.dat
 done
-)  # > 1-io-tab.csv
+)  > 2-alloc-attribs.csv
 
