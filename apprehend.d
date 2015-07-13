@@ -1,5 +1,8 @@
-import std.algorithm, std.conv, std.exception, std.math, std.range, std.string, std.stdio;
+import std.algorithm, core.bitop, std.conv, std.exception, std.math, std.random,
+	std.range, std.string, std.stdio, std.traits;
 
+immutable double stochasticError = 1e-3;
+immutable maxK = 100; // first Uk-s to comput
 
 void process(File inp, string filename){
 	size_t[] counts; // aggregated object counts per attribute
@@ -34,29 +37,43 @@ void process(File inp, string filename){
 		.filter!(x => x!= 0 && x != objects)
 		.map!(x => cast(double)x / objects)
 		.array; // 0<..<1 density array
-	writeln("K\tUk");
-	for(size_t k=1; k<min(13,density.length); k++){
-		auto m = maxGeoMeanByK(density, k);
-		writefln("%s\t%s", k, m);
+	density.sort!"a>b"();
+	writeln("K\tMaxMUk\tSt.MUk\tMinUk\tMaxMuk^^k\tSt.MUk^^k\tMinUk^^k");
+	for(size_t k=1; k<min(maxK, density.length); k++){
+		auto maxMu = geometricMean(density[0..k]);
+		auto minMu = geometricMean(density[$-k..$]);
+		// stochastic geometric mean of k sets, with accepted varience of < 1e-7
+		auto stMu = stochasticMean(density, k, stochasticError);
+		writefln("%s\t%g\t%g\t%g\t%g\t%g\t%g", k, maxMu, stMu, minMu, pow(maxMu, k), pow(stMu, k), pow(minMu, k));
 	}
 }
 
-double maxGeoMeanByK(double[] args, size_t k){
-	auto permut = iota(0, k).array;
-	double maxSoFar = 0;
-	do{
-		// use the current permutation and
-		auto gmean = permut.map!(x => args[x]).array.geometricMean;
-		if(gmean > maxSoFar)
-			maxSoFar = gmean;
-		// proceed to the next permutation of the array.
-	}while(nextPermutation(permut));
-	return maxSoFar;
+double geometricMean(Range)(Range args) if(isFloatingPoint!(ElementType!Range)){
+	//sort!"a > b"(args); // start multiplication with biggest numbers...
+	return pow(args.reduce!((a,b) => a*b), 1.0/args.length);
 }
 
-double geometricMean(Range)(Range args){
-	sort!"a > b"(args); // start multiplication with biggest numbers...
-	return pow(args.reduce!((a,b) => a*b), 1.0/args.length);
+double stochasticMean(Range)(Range args, size_t k, double varience) if(isFloatingPoint!(ElementType!Range)){
+	double meanOverSamples(size_t samples){
+		double accum = 0.0;
+		foreach(_; 0..samples){
+			accum += geometricMean(randomSample(args, k).array);
+		}
+		return accum / samples;
+	}
+	double prev = meanOverSamples(16);
+	// double prev_delta = 0;
+	for(size_t i=16; i<=2^^25; i *= 2){ // prevent getting stuck forever
+		double cur = meanOverSamples(i);
+		double delta = fabs(cur - prev);
+		if(delta < varience){ // naive numeric code
+			// writefln("Converged with 2^^%s samples.", bsr(i));
+			return cur;
+		}
+		prev = cur;
+		// prev_delta = delta;
+	}
+	return double.nan; // not converged
 }
 
 void main(string[] args){
