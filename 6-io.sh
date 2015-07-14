@@ -2,26 +2,27 @@
 source script-base
 ALGOS="$ALL"
 SAMPLES=3 # number of random samples per synthetic data set 
+# doesn't have to output series parameter
 # $1 - buf_size, $2 writer,  $3 - dataset file
 produce_line(){
 	local buf="$1"
 	local wrt="$2"
 	local file="$3"
-	echo -n "$buf,"
 	run_to_csv bitset bitset $wrt malloc "$ALGOS" -b$buf "$file"
-	echo
 }
+
+
 
 # <input> <output> <writer>
 produce_file(){
-	(
-	echo -n "Size,"
-	echo "$ALGOS"  | sed 's/ /,---,/g'
-	for buf in 10 20 40 80 100 1000 2000 4000 8000 10000 20000 400000 ; do
-		produce_line "$buf" "$3" "$1"
-	done
-	)  > $2 
+	local inp="$1"
+	local output="$2"
+	local writer="$3"
+	local hdr=$(echo -n "Size," && echo "$ALGOS"  | sed 's/ /,---,/g')
+	local range="10 20 40 80 100 1000 2000 4000 8000 10000 20000 400000"
+	produce_csv_series "$output" "$hdr" "$range" produce_line "$writer" "$inp"
 }
+
 
 # entry point 
 mkdir -p out-1-io

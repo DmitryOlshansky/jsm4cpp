@@ -1,3 +1,4 @@
+#!/bin/bash
 NAMES="bcbo fcbo inclose2 inclose3"
 # parallel names
 PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
@@ -32,6 +33,7 @@ run_to_csv(){
 		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
 		echo -n "$ELAPSED,$KB,"
 	done
+	echo
 }
 
 
@@ -85,4 +87,23 @@ apply_to_datasets(){
 		mkdir -p $DIR # make dir tree to target
 		"$cmd" $dat $target $@
 	done
+}
+
+# produce CSV series as rows of runs of command cmd with varying parameter
+#
+# <output-file> <header> <value-range-as-single-string> <cmd> <extra args>
+# cmd is executed as: $cmd <value-from-range> <extra-args> to produce a line of csv
+produce_csv_series(){
+	local output="$1"
+	local hdr="$2"
+	local range="$3"
+	local cmd="$4"
+	shift 4
+	(
+		echo "$hdr"
+		for param in $range ; do # unpacks param string
+			echo -n "$param,"
+			"$cmd" "$param" $@
+		done
+	)  > "$output"
 }
