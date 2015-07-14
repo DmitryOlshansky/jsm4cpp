@@ -26,6 +26,7 @@ produce_file(){
 
 
 # entry point 
+mkdir -p final
 mkdir -p out-io
 for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
 	name=`dataset_name $tripple`
