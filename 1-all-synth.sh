@@ -100,6 +100,8 @@ produce_density_csv_series(){
 }
 
 do_all(){
+	rm -rf "$CSVDIR"
+	rm -rf "$DATADIR"
 	mkdir -p final
 	mkdir -p "$DATADIR"
 	mkdir -p "$CSVDIR"

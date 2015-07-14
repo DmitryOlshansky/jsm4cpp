@@ -15,6 +15,32 @@ produce_line(){
 	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -L1" "$file"
 }
 
+# <cmd> <args>
+run_csv_foreign(){
+	local cmd=$1
+	shift 1
+	OUTPUT=$(/usr/bin/time -f "%e-%M" $cmd $@ 2>&1  > out.dat)
+	ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)-([0-9a-]+)\s*/\1/')
+	KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)-([0-9a-z]+)\s*/\2/')
+	echo -n "$ELAPSED,$KB,"
+}
+
+# output hdr RANGE 
+produce_krajca_csv(){
+	local output="$1"
+	local hrd="$2"
+	local range="$3"
+	(
+		echo "$hdr"
+		for f in $range ; do
+			echo -n "$f,"
+			run_csv_foreign ./fcbo $f
+			run_csv_foreign ./pcbo -P$THREADS -L2
+			echo
+		done
+	) > $output
+}
+
 # iterate 2-D range of (extent-type x intent-type )
 for_intents_extents(){
 	local cmd="$1"
@@ -41,16 +67,22 @@ process_real_sets(){
 	local intent=$2
 	local file="data/%s.dat"
 	local hdr=$(echo -n "File," && 	echo "$ALGOS" | sed 's/ /,---,/g')
-	produce_csv_series "$CSVDIR/real-$intent-$extent-$n.csv" "$hdr" "$RANGE" \
-		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/real-$intent-$extent-*.csv > final/${FINAL}-real-$intent-$extent.csv
+	for n in $(seq 0 ${SAMPLES_LAST}) ; do
+		if [ "$FINAL" == "serial" ] ; then  # produce only first time
+			produce_krajca_csv "$CSVDIR/real-krajca-$n.csv" "$hdr" "$RANGE" 
+		fi
+		produce_csv_series "$CSVDIR/real-$intent-$extent-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" \
+			produce_line "$file" $extent $intent
+	done
+	./merge-csv $CSVDIR/real-krajca-*.csv > final/${FINAL}-real-krajca.csv
+	./merge-csv $CSVDIR/real-$intent-$extent-*.csv > final/${FINAL}-real-$intent-$extent.csv	
 }
 
 do_all(){
+	rm -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for_intents_extents process_real_sets 
-	rm -rf $CSVDIR # cleanup
 }
 
 # entry point 

@@ -36,6 +36,7 @@ process_real_sets(){
 }
 
 do_all(){
+	rmdir -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for flag in "--sorted" " " ; do 

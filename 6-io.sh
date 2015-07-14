@@ -25,6 +25,7 @@ produce_file(){
 
 echo "Using $THREADS threads for parallel execution." >&2
 # entry point 
+rmdir -rf "$CSVDIR"
 mkdir -p final
 mkdir -p out-io
 for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
@@ -36,4 +37,4 @@ for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
 	./merge-csv out-io-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
 	./merge-csv out-io-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
 done
-rm -rf out-io-csv/ # cleanup
+

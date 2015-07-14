@@ -38,7 +38,6 @@ do_all(){
 		process_real_sets linear bitset $s $dataset
 	done
 	done
-	rm -rf $CSVDIR # cleanup
 }
 
 # entry point 

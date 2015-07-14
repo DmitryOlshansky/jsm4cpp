@@ -30,10 +30,11 @@ process_real_sets(){
 	echo "$extent" "$intent" "$file" >&2
 	produce_csv_series "$CSVDIR/threads-$intent-$extent-$alloc-$dataset-$n.csv" "$hdr" "$RANGE" \
 		produce_line "$file" $extent $intent $L $alloc
-	./merge-csv $CSVDIR/threads-$intent-$extent-$alloc-$dataset-*.csv > final/threads-$intent-$extent-$alloc-$dataset.csv
+	./merge-csv $CSVDIR/threads-$intent-$extent-$alloc-$dataset-*.csv > final/-$intent-$extent-$alloc-$dataset.csv
 }
 
 do_all(){
+	rmdir -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for dataset in $DATA ; do 
@@ -46,13 +47,13 @@ do_all(){
 	done
 	done
 	done
-	rm -rf $CSVDIR # cleanup
 }
 
 # entry point 
 echo "Using up to $THREADS threads for parallel execution." >&2
 
 ALGOS="$PARALLEL"
+FINAL="threads"
 RANGE=$(seq 1 $THREADS)
 DATA="$REALDATA"
 echo "Parallel versions." >&2
