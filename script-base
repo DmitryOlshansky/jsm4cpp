@@ -31,10 +31,16 @@ run_to_csv(){
 	for algo in $ALGOS ; do
 		# echo "$algo" >&2 # debug hook
 		# echo /usr/bin/time -f "%M" ./$bin -a$algo $flags $@  >&2
-		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $flags $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
-		ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')
-		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
-		echo -n "$ELAPSED,$KB,"
+		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $flags $@  2>&1  > out.dat)
+		if echo $OUTPUT | grep Time ; then
+			FILTERED=$(echo $OUTPUT | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
+			ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')
+			KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
+			echo -n "$ELAPSED,$KB,"
+		else
+			echo -n "0,0"
+			echo "Failed with ./$bin -a$algo">&2
+		fi
 	done
 	echo
 }
