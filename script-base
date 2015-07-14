@@ -91,7 +91,7 @@ apply_to_datasets(){
 
 # produce CSV series as rows of runs of command cmd with varying parameter
 #
-# <output-file> <header> <value-range-as-single-string> <cmd> <extra args>
+# <output-file> <header> <value-range as single-string> <cmd> <extra args>
 # cmd is executed as: $cmd <value-from-range> <extra-args> to produce a line of csv
 produce_csv_series(){
 	local output="$1"
