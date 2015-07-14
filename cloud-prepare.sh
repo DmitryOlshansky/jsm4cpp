@@ -10,7 +10,7 @@ sudo dpkg -i dmd_2.067.1-0_amd64.deb
 git clone https://blackwhale@bitbucket.org/blackwhale/rnd.git
 
 cd rnd/jsm-generate2
-dmd datagen.d &
-dmd merge-csv.d &
+dmd -O -release datagen.d &
+dmd -O -release merge-csv.d &
 ./build-all.sh
 wait
