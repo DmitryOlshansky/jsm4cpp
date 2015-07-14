@@ -28,6 +28,10 @@ mkdir -p out-1-io
 for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
 	name=`dataset_name $tripple`
 	make_random_datasets $SAMPLES $tripple "out-io"
-	apply_to_datasets $tripple out-io out-io-csv/io-tab-$name-%s.csv produce_file simple
+	apply_to_datasets $tripple out-io out-io-csv/io-sim-$name-%s.csv produce_file simple
 	apply_to_datasets $tripple out-io out-io-csv/io-tab-$name-%s.csv produce_file table
+	mkdir -p final
+	./merge-csv out-io-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
+	./merge-csv out-io-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
 done
+rm -rf out-io-csv/ # cleanup
