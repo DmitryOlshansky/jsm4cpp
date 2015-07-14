@@ -3,13 +3,14 @@ NAMES="bcbo fcbo inclose2 inclose3"
 # parallel names
 PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
 FPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/fp-\0/g')
-TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
+TPNAMES="tp-bcbo tp-fcbo"
+#TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
 # 
 ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
 SERIAL="cbo $NAMES"
 PARALLEL="$PNAMES $FPNAMES $TPNAMES"
-EXTENTS=(bitset linear tree) # TODO: hashset
-INTENTS=(bitset linear tree) # might not be the same as extents
+EXTENTS="bitset linear tree" # TODO: hashset
+INTENTS="bitset linear tree" # might not be the same as extents
 WRITERS=(table simple)
 ALLOCS=(malloc shared-pool tls-pool)
 
@@ -28,8 +29,8 @@ run_to_csv(){
 	local flags="$6"
 	shift 6
 	for algo in $ALGOS ; do
-		#TODO: tmp name?
-		#TODO: smallest of 3 runs
+		# echo "$algo" >&2 # debug hook
+		# echo /usr/bin/time -f "%M" ./$bin -a$algo $flags $@  >&2
 		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $flags $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
 		ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')
 		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')

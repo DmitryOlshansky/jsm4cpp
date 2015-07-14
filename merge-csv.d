@@ -46,30 +46,40 @@ void main(string[] args){
 				header = false;
 				continue;
 			}
-			// turn each record into array
-			auto data = records.
-				map!(x=>x.map!(y=> y.length ? to!double(y) : 0)).
-				map!(z=>z.array).array;
-			double[] merged = new double[data[0].length]; //TODO: pick min or max?
+			// turn all records into array
+			auto strs = records.map!(x=>x.array).array;
+			// separate 1-st col of parameters
+			auto labels = strs.map!(x=>x[0]).array;
+			// 
+			auto convert(string y){
+				stderr.writeln(y);
+				return y.length ? to!double(y) : 0;
+			}
+			auto data = strs.map!(x=>x[1..$].map!(convert).array).array;
+
+			// ignore first row that must be the same across CSV series data
+			double[] merged = new double[data[0].length-1];
 			foreach(i; 0..merged.length){
+				immutable k = i + 1;
 				if(op == Operation.mean){
 					double accum = 0.0;
 					foreach(j;0..data.length)
-						accum += data[j][i];
+						accum += data[j][k];
 					merged[i] = accum/data.length;
 				}
 				else if(op == Operation.min){
 					double m = double.max;
 					foreach(j;0..data.length)
-						if(data[j][i] < m)
-							m = data[j][i];
+						if(data[j][k] < m)
+							m = data[j][k];
 					merged[i] = m;
 				}
 			}
+			write(labels[0], ",");
 			writefln("%(%s,%)", merged);
 		}
 	}
 	catch(Exception e){
-		stderr.writeln(e);
+		stderr.writeln("merge-csv: ", e.msg);
 	}
 }

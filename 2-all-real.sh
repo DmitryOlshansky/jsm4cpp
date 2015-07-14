@@ -12,6 +12,7 @@ produce_line(){
 	local extent="$3"
 	local intent="$4"
 	local file=`printf $2 $1`
+	echo $file >&2
 	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -L1" "$file"
 }
 
@@ -19,12 +20,19 @@ produce_line(){
 for_intents_extents(){
 	local cmd="$1"
 	shift 1
+	# linearize combinatorics - fix extent to the "standard" - bitset
 	for intent in $INTENTS ; do
-	for extent in $EXTENTS ; do
 		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			"$cmd" $intent $extent $@
+			echo "bitset" "$intent" >&2
+			"$cmd" bitset $intent $@
 		done
 	done
+	# linearize combinatorics - fix intent to the "standard" - bitset
+	for extent in $EXTENTS ; do
+		for n in `seq 0 ${SAMPLES_LAST}` ; do
+			echo "$extent" "bitset" >&2
+			"$cmd" $extent bitset $@
+		done
 	done
 }
 
@@ -35,28 +43,29 @@ process_real_sets(){
 	local file="data/%s.dat"
 	local hdr=$(echo -n "#Objects," && 	echo "$ALGOS" | sed 's/ /,---,/g')
 	# echo "$hdr" >&2
-	produce_csv_series "$CSVDIR/objects-$intent-$extent-$n.csv" "$hdr" "$RANGE" \
+	produce_csv_series "$CSVDIR/real-$intent-$extent-$n.csv" "$hdr" "$RANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/objects-$intent-$extent-*.csv > final/${FINAL}real-$intent-$extent.csv
+	./merge-csv $CSVDIR/real-$intent-$extent-*.csv > final/${FINAL}real-$intent-$extent.csv
 }
 
 do_all(){
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for_intents_extents process_real_sets 
-	rm -rf $CSVDIR # cleanup
+	# rm -rf $CSVDIR # cleanup
 }
 
-echo "Using $THREADS threads for parallel version." >&2
-
 # entry point 
-ALGOS="$SERIAL"
-FINAL="serial-"
-RANGE="adult mushroom"
-do_all
+echo "Using $THREADS threads for parallel version." >&2
 
 ALGOS="$PARALLEL"
 FINAL="par-"
 # same RANGE
+echo "Parallel versions." >&2
 do_all
 
+ALGOS="$SERIAL"
+FINAL="serial-"
+RANGE="adult mushroom"
+echo "Serial versions." >&2
+do_all
