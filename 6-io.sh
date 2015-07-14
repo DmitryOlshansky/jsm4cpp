@@ -2,17 +2,16 @@
 source script-base
 ALGOS="$ALL"
 SAMPLES=3 # number of random samples per synthetic data set 
-# doesn't have to output series parameter
+THREADS=`nproc`
+
 # $1 - buf_size, $2 writer,  $3 - dataset file
 produce_line(){
 	local buf="$1"
 	local wrt="$2"
 	local file="$3"
 	# "" - no extra flags
-	run_to_csv bitset bitset $wrt malloc "$ALGOS" -b$buf "" "$file"
+	run_to_csv bitset bitset $wrt malloc "$ALGOS" -b$buf "-t$THREADS" "$file"
 }
-
-
 
 # <input> <output> <writer>
 produce_file(){
@@ -24,7 +23,7 @@ produce_file(){
 	produce_csv_series "$output" "$hdr" "$range" produce_line "$writer" "$inp"
 }
 
-
+echo "Using $THREADS threads for parallel execution." >&2
 # entry point 
 mkdir -p final
 mkdir -p out-io

@@ -52,7 +52,7 @@ void main(string[] args){
 			auto labels = strs.map!(x=>x[0]).array;
 			// 
 			auto convert(string y){
-				stderr.writeln(y);
+				// stderr.writeln(y);
 				return y.length ? to!double(y) : 0;
 			}
 			auto data = strs.map!(x=>x[1..$].map!(convert).array).array;

@@ -35,14 +35,14 @@ for_intents_extents_samples(){
 	local cmd="$1"
 	shift 1
 	for intent in $INTENTS ; do
+		echo "bitset" "$intent" >&2
 		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			echo "bitset" "$intent" >&2
 			"$cmd" "bitset" $intent $n $@
 		done
 	done
 	for extent in $EXTENTS ; do
+		echo "$extent" "bitset" >&2
 		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			echo "$extent" "bitset" >&2
 			"$cmd" $extent "bitset" $n $@
 		done
 	done
@@ -96,7 +96,7 @@ produce_density_csv_series(){
 	# echo "$hdr" >&2
 	produce_csv_series "$CSVDIR/density-$intent-$extent-$n.csv" "$hdr" "$DENRANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/density-$intent-$extent-*.csv > final/${FINAL}synth-density-$intent-$extent.csv
+	./merge-csv $CSVDIR/density-$intent-$extent-*.csv > final/${FINAL}-synth-density-$intent-$extent.csv
 }
 
 do_all(){
@@ -118,10 +118,10 @@ do_all(){
 	# rm -rf $CSVDIR # cleanup
 }
 # entry point 
-echo "Using $THREADS threads for parallel version." >&2
+echo "Using $THREADS threads for parallel execution." >&2
 
 ALGOS="$PARALLEL"
-FINAL="par-"
+FINAL="par"
 OBJRANGE="10000 20000 30000 40000 50000 60000 70000 80000 90000"
 ATTRRANGE="50 100 150 200 250 300 400 500 600 700 800 900"
 DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10 0.11 0.12 0.13"
@@ -129,7 +129,7 @@ echo "Parallel versions." >&2
 do_all
 
 ALGOS="$SERIAL"
-FINAL="serial-"
+FINAL="serial"
 OBJRANGE="5000 10000 20000 30000 40000 50000 60000"
 ATTRRANGE="50 100 150 200 250 300 400 500 600"
 DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10"
