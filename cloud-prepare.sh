@@ -6,4 +6,7 @@ sudo apt-get install -y build-essential g++ libboost-dev scons gdc git libboost-
 git clone https://blackwhale@bitbucket.org/blackwhale/rnd.git
 
 cd rnd/jsm-generate2
+gdc datagen.d -o datagen &
+gdc -Ofast merge-csv.d -o merge-csv &
 ./build-all.sh
+wait
