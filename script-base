@@ -7,6 +7,7 @@ TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
 # 
 ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
 SERIAL="cbo $NAMES"
+PARALLEL="$PNAMES $FPNAMES $TPNAMES"
 EXTENTS=(bitset linear tree) # TODO: hashset
 INTENTS=(bitset linear tree) # might not be the same as extents
 WRITERS=(table simple)
@@ -24,11 +25,12 @@ binary_suffix(){
 run_to_csv(){
 	local bin=gen-$(binary_suffix $1 $2 $3 $4)
 	local ALGOS="$5"
-	shift 5
+	local flags="$6"
+	shift 6
 	for algo in $ALGOS ; do
 		#TODO: tmp name?
 		#TODO: smallest of 3 runs
-		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo -t4 -L1 $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
+		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $flags $@  2>&1  > out.dat | sed 's/Time//'| sed 's/://g' | tr -t '\n\r' '  ')
 		ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')
 		KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\2/')
 		echo -n "$ELAPSED,$KB,"
