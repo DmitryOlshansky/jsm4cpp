@@ -1,7 +1,7 @@
 #!/bin/sh
 # A script to get fresh cloud VM up and running
 sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y build-essential g++ libboost-dev scons git libboost-system-dev nohup
+sudo apt-get install -y make build-essential g++ libboost-dev scons git libboost-system-dev
 
 # install recent DMD D compiler
 wget http://downloads.dlang.org/releases/2.x/2.067.1/dmd_2.067.1-0_amd64.deb
