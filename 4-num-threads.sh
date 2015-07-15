@@ -28,9 +28,9 @@ process_real_sets(){
 	local file="data/$dataset.dat"
 	local hdr=$(echo -n "L," && echo "$ALGOS" | sed 's/ /,---,/g')
 	echo "$extent" "$intent" "$file" >&2
-	produce_csv_series "$CSVDIR/threads-$intent-$extent-$alloc-$dataset-$n.csv" "$hdr" "$RANGE" \
+	produce_csv_series "$CSVDIR/threads-$L-$extent-$intent-$alloc-$dataset-$n.csv" "$hdr" "$RANGE" \
 		produce_line "$file" $extent $intent $L $alloc
-	./merge-csv $CSVDIR/threads-$intent-$extent-$alloc-$dataset-*.csv > final/-$intent-$extent-$alloc-$dataset.csv
+	./merge-csv $CSVDIR/threads-$L-$extent-$intent-$alloc-$dataset-*.csv > final/threads-L$L-$extent-$intent-$alloc-$dataset.csv
 }
 
 do_all(){

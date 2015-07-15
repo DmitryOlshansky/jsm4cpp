@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 source script-base
 ALGOS="$ALL"
 SAMPLES=3 # number of random samples per synthetic data set 
@@ -25,7 +25,7 @@ produce_file(){
 
 echo "Using $THREADS threads for parallel execution." >&2
 # entry point 
-rmdir -rf "$CSVDIR"
+rm -rf "$CSVDIR"
 mkdir -p final
 mkdir -p out-io
 for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do

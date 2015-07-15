@@ -74,10 +74,10 @@ process_real_sets(){
 	if [ "$FINAL" == "serial" ] ; then  # produce only first time
 		produce_krajca_csv "$CSVDIR/real-krajca-$n.csv" "$hdr" "$RANGE" 
 	fi
-	produce_csv_series "$CSVDIR/real-$intent-$extent-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" \
+	produce_csv_series "$CSVDIR/real-$extent-$intent-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" \
 		produce_line "$file" $extent $intent
 	./merge-csv $CSVDIR/real-krajca-*.csv > final/${FINAL}-real-krajca.csv
-	./merge-csv $CSVDIR/real-$intent-$extent-*.csv > final/${FINAL}-real-$intent-$extent.csv
+	./merge-csv $CSVDIR/real-$extent-$intent-*.csv > final/${FINAL}-real-$extent-$intent.csv
 }
 
 do_all(){

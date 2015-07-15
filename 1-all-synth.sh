@@ -52,9 +52,9 @@ produce_object_csv_series(){
 	local file="$DATADIR/o-%s-$n.dat"
 	local hdr=$(echo -n "#Objects," && 	echo "$ALGOS" | sed 's/ /,---,/g')
 	# echo "$hdr" >&2
-	produce_csv_series "$CSVDIR/objects-$intent-$extent-$n.csv" "$hdr" "$OBJRANGE" \
+	produce_csv_series "$CSVDIR/objects-$extent-$intent-$n.csv" "$hdr" "$OBJRANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/objects-$intent-$extent-*.csv > final/${FINAL}synth-objects-$intent-$extent.csv
+	./merge-csv $CSVDIR/objects-$extent-$intent-*.csv > final/${FINAL}synth-objects-$extent-$intent.csv
 }
 
 # $1 - extent, $2 - intent, $3 - sample

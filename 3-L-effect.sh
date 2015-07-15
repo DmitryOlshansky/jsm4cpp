@@ -24,12 +24,13 @@ process_real_sets(){
 	local file="data/$dataset.dat"
 	local hdr=$(echo -n "L," && echo "$ALGOS" | sed 's/ /,---,/g')
 	echo "$extent" "$intent" "$file" >&2
-	produce_csv_series "$CSVDIR/L-$intent-$extent-$dataset-$n.csv" "$hdr" "$RANGE" \
+	produce_csv_series "$CSVDIR/L-$extent-$intent-$dataset-$n.csv" "$hdr" "$RANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/L-$intent-$extent-$dataset-*.csv > final/L-$intent-$extent-$dataset.csv
+	./merge-csv $CSVDIR/L-$extent-$intent-$dataset-*.csv > final/L-$extent-$intent-$dataset.csv
 }
 
 do_all(){
+	rmdir -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for dataset in $DATA ; do 
