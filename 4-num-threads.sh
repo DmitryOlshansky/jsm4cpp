@@ -38,7 +38,7 @@ do_all(){
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for dataset in $DATA ; do 
-	for L in 1 2 ; do
+	for L in 2 ; do # just use 2 for L
 	for alloc in malloc shared-pool tls-pool ; do
 	for s in $(seq 0 ${SAMPLES_LAST}) ; do
 			process_real_sets bitset bitset $s $dataset $L $alloc

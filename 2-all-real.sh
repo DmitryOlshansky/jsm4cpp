@@ -19,6 +19,7 @@ produce_line(){
 run_csv_foreign(){
 	local cmd=$1
 	shift 1
+	# echo $cmd $@ >&2
 	OUTPUT=$(/usr/bin/time -f "%e-%M" $cmd $@ 2>&1  > out.dat)
 	ELAPSED=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)-([0-9a-]+)\s*/\1/')
 	KB=$(echo "$OUTPUT" | sed -r 's/\s*([0-9a-z.]+)-([0-9a-z]+)\s*/\2/')
@@ -28,40 +29,18 @@ run_csv_foreign(){
 # output hdr RANGE 
 produce_krajca_csv(){
 	local output="$1"
-	local hrd="$2"
+	local hdr="$2"
 	local range="$3"
 	(
-		echo "$hdr"
+		echo "$hdr"		
 		for f in $range ; do
+			local file=`printf data/%s.dat $f`
 			echo -n "$f,"
-			run_csv_foreign ./fcbo $f
-			run_csv_foreign ./pcbo -P$THREADS -L2
+			run_csv_foreign ./fcbo $file
+			run_csv_foreign ./pcbo -P$THREADS -L2 $file
 			echo
 		done
 	) > $output
-}
-
-# iterate 2-D range of (extent-type x intent-type )
-# $2 - scale
-for_intents_extents(){
-	local cmd="$1"
-	shift 1
-	# linearize combinatorics - fix extent to the "standard" - bitset
-	for intent in $INTENTS ; do
-		echo "bitset" "$intent" >&2
-		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			"$cmd" bitset $intent $@
-		done
-	done
-	# linearize combinatorics - fix intent to the "standard" - bitset
-	for extent in $EXTENTS ; do
-		if [ "$extent" != "bitset" ] ; then # already checked bitset bitset
-			echo "$extent" "bitset" >&2
-			for n in `seq 0 ${SAMPLES_LAST}` ; do
-				"$cmd" $extent bitset $@
-			done
-		fi
-	done
 }
 
 # $1 - extent, $2 - intent, $3 - sample count
@@ -71,12 +50,12 @@ process_real_sets(){
 	local n=$3
 	local file="data/%s.dat"
 	local hdr=$(echo -n "File," && 	echo "$ALGOS" | sed 's/ /,---,/g')
-	if [ "$FINAL" == "serial" ] ; then  # produce only first time
-		produce_krajca_csv "$CSVDIR/real-krajca-$n.csv" "$hdr" "$RANGE" 
+	if [ "$FINAL" == "par" ] ; then  # produce only once
+		produce_krajca_csv "$CSVDIR/real-krajca-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" 
+		./merge-csv $CSVDIR/real-krajca-*.csv > final/${FINAL}-real-krajca.csv
 	fi
-	produce_csv_series "$CSVDIR/real-$extent-$intent-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" \
+	produce_csv_series "$CSVDIR/real-$extent-$intent-$n.csv" "$hdr" "$RANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/real-krajca-*.csv > final/${FINAL}-real-krajca.csv
 	./merge-csv $CSVDIR/real-$extent-$intent-*.csv > final/${FINAL}-real-$extent-$intent.csv
 }
 

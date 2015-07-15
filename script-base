@@ -114,7 +114,7 @@ apply_to_datasets(){
 # runs command as "$cmd" "$extent" "$intent" "$sample"
 for_intents_extents_samples(){
 	local cmd="$1"
-	if [ "x$2" != "" ] ; then
+	if [ "x$2" != "x" ] ; then
 		local scale="yes"
 		echo >&2 "*** Fork scale is on - this needs LOTs of cores to get proper results" 
 	else
