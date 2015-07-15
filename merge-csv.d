@@ -56,22 +56,21 @@ void main(string[] args){
 				return y.length ? to!double(y) : 0;
 			}
 			auto data = strs.map!(x=>x[1..$].map!(convert).array).array;
-
 			// ignore first row that must be the same across CSV series data
-			double[] merged = new double[data[0].length-1];
+			double[] merged = new double[data[0].length];
 			foreach(i; 0..merged.length){
-				immutable k = i + 1;
 				if(op == Operation.mean){
 					double accum = 0.0;
 					foreach(j;0..data.length)
-						accum += data[j][k];
+						accum += data[j][i];
 					merged[i] = accum/data.length;
 				}
 				else if(op == Operation.min){
 					double m = double.max;
-					foreach(j;0..data.length)
-						if(data[j][k] < m)
-							m = data[j][k];
+					foreach(j;0..data.length){
+						if(data[j][i] < m)
+							m = data[j][i];
+					}
 					merged[i] = m;
 				}
 			}

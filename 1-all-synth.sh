@@ -54,7 +54,7 @@ produce_object_csv_series(){
 	# echo "$hdr" >&2
 	produce_csv_series "$CSVDIR/objects-$extent-$intent-$n.csv" "$hdr" "$OBJRANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/objects-$extent-$intent-*.csv > final/${FINAL}synth-objects-$extent-$intent.csv
+	./merge-csv $CSVDIR/objects-$extent-$intent-*.csv > final/${FINAL}-synth-objects-$extent-$intent.csv
 }
 
 # $1 - extent, $2 - intent, $3 - sample
@@ -67,7 +67,7 @@ produce_attribute_csv_series(){
 	# echo "$hdr" >&2
 	produce_csv_series "$CSVDIR/attrs-$intent-$extent-$n.csv" "$hdr" "$ATTRRANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/attrs-$intent-$extent-*.csv > final/${FINAL}synth-attrs-$intent-$extent.csv
+	./merge-csv $CSVDIR/attrs-$intent-$extent-*.csv > final/${FINAL}-synth-attrs-$intent-$extent.csv
 }
 
 # $1 - extent, $2 - intent, $3 - sample
@@ -96,11 +96,11 @@ do_all(){
 	if [ "$FINAL" == "serial" ] ; then
 		# scale across a couple of CPU cores
 		# object series
-		for_intents_extents_samples produce_object_csv_series scale_test
+		for_intents_extents_samples produce_object_csv_series fork_scale
 		# attribute series
-		for_intents_extents_samples produce_attribute_csv_series scale_test
+		for_intents_extents_samples produce_attribute_csv_series fork_scale
 		# density series
-		for_intents_extents_samples produce_density_csv_series scale_test
+		for_intents_extents_samples produce_density_csv_series fork_scale
 	else # no scaling across cores - parallel tests use all of CPUs
 		# object series
 		for_intents_extents_samples produce_object_csv_series 
@@ -109,8 +109,6 @@ do_all(){
 		# density series
 		for_intents_extents_samples produce_density_csv_series
 	fi
-	
-	# rm -rf $CSVDIR # cleanup
 }
 # entry point 
 echo "Using $THREADS threads for parallel execution." >&2
@@ -125,8 +123,8 @@ do_all
 
 ALGOS="$PARALLEL"
 FINAL="par"
-OBJRANGE="10000 20000 30000 40000 50000 60000 70000 80000 90000"
-ATTRRANGE="50 100 150 200 250 300 400 500 600 700 800 900"
-DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10 0.11 0.12 0.13"
+OBJRANGE="10000 20000 30000 40000 50000 60000 70000 80000"
+ATTRRANGE="50 100 150 200 250 300 400 500 600 700 800"
+DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10 0.11 0.12"
 echo "Parallel versions." >&2
 do_all

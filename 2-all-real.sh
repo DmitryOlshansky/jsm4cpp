@@ -63,7 +63,11 @@ do_all(){
 	rm -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
-	for_intents_extents_samples process_real_sets 
+	if [ "$FINAL" == "serial" ] ; then
+		for_intents_extents_samples process_real_sets fork_scale
+	else
+		for_intents_extents_samples process_real_sets
+	fi
 }
 
 # entry point 
