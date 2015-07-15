@@ -36,14 +36,20 @@ process_real_sets(){
 }
 
 do_all(){
-	rmdir -rf "$CSVDIR"
+	rm -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for flag in "--sorted" " " ; do 
-	for s in $(seq 0 ${SAMPLES_LAST}) ; do
-		process_real_sets bitset bitset $s $flag
-		process_real_sets linear bitset $s $flag
-	done
+		for s in $(seq 0 ${SAMPLES_LAST}) ; do
+			if [ "$FINAL" == "serial" ] ; then # ad-hoc parallelism
+				process_real_sets bitset bitset $s $flag &
+				process_real_sets linear bitset $s $flag &
+			else
+				process_real_sets bitset bitset $s $flag 
+				process_real_sets linear bitset $s $flag 
+			fi
+		done
+		wait # 2 * sample count forks at most
 	done
 	rm -rf $CSVDIR # cleanup
 }
@@ -51,14 +57,14 @@ do_all(){
 # entry point 
 echo "Using $THREADS threads for parallel execution." >&2
 
-ALGOS="$PARALLEL"
-FINAL="par"
-RANGE="$REALDATA"
-echo "Parallel versions." >&2
-do_all
-
 ALGOS="$SERIAL"
 FINAL="serial"
 RANGE="$REALDATA"
 echo "Serial versions." >&2
+do_all
+
+ALGOS="$PARALLEL"
+FINAL="par"
+RANGE="$REALDATA"
+echo "Parallel versions." >&2
 do_all
