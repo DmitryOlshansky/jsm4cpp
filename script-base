@@ -31,7 +31,7 @@ run_to_csv(){
 	shift 6
 	for algo in $ALGOS ; do
 		# echo /usr/bin/time -f "%M" ./$bin -a$algo $flags $@  >&2
-		OUTPUT=$(/usr/bin/time -f "%M" ./$bin -a$algo $flags $@  2>&1  > out.dat)
+		OUTPUT=$(/usr/bin/time -f "%M" nice -n -20 ./$bin -a$algo $flags $@  2>&1  > out.dat)
 		if echo "$OUTPUT" | grep -q Time ; then
 			FILTERED=$(echo "$OUTPUT" | sed 's/Time//g'| sed 's/://g' | tr -t '\n\r' '  ')
 			ELAPSED=$(echo "$FILTERED" | sed -r 's/\s*([0-9a-z.]+)\s*([0-9a-z]+)\s*/\1/')

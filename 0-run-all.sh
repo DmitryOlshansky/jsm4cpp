@@ -10,5 +10,5 @@ runner(){
 		run_stage $n
 	done
 }
-
-runner 2> error-log.log
+# need root level permissions to use nice -n -20
+sudo runner 2> error-log.log
