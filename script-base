@@ -45,6 +45,16 @@ run_to_csv(){
 	echo
 }
 
+# $1 - fork flag $2+ cmd line
+run_with_scale(){
+	local flag=$1
+	shift 1
+	if [ "$flag" == "yes" ] ; then
+		$@ &
+	else
+		$@
+	fi
+}
 
 # generate a bunch of random datasets using format of dir/objects-attrs-density-<id>.dat
 # <# of samples> <objects> <attrs> <density - float> <dir>
@@ -97,6 +107,39 @@ apply_to_datasets(){
 		"$cmd" $dat $target $@
 	done
 }
+
+
+# iterate 3-D range of (extent-type x intent-type x sample count)
+# $1 - cmd, $2 - if present, scale by forking
+# runs command as "$cmd" "$extent" "$intent" "$sample"
+for_intents_extents_samples(){
+	local cmd="$1"
+	if [ "x$2" != "" ] ; then
+		local scale="yes"
+		echo >&2 "*** Fork scale is on - this needs LOTs of cores to get proper results" 
+	else
+		local scale="no"
+	fi
+	echo  >&2 "Scaling test runs by forking : $scale."
+	shift 1
+	for intent in $INTENTS ; do
+		echo "bitset" "$intent" >&2
+		for n in `seq 0 ${SAMPLES_LAST}` ; do
+			run_with_scale "$scale" "$cmd" "bitset" $intent $n 
+		done
+	done
+	wait
+	for extent in $EXTENTS ; do
+		if [ "$extent" != "bitset" ] ; then # already checked bitset bitset
+			echo "$extent" "bitset" >&2
+			for n in `seq 0 ${SAMPLES_LAST}` ; do
+				run_with_scale "$scale" "$cmd" $extent "bitset" $n 
+			done
+		fi
+	done
+	wait
+}
+
 
 # produce CSV series as rows of runs of command cmd with varying parameter
 #

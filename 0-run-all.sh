@@ -1,11 +1,14 @@
 #!/bin/bash
+
+run_stage(){
+	echo "Stage $1" >&2
+	time ./$1-*.sh
+}
+
 runner(){
-	./1-*.sh
-	./2-*.sh
-	./3-*.sh
-	./4-*.sh
-	./5-*.sh
-	./6-*.sh
+	for n in `seq 1 6` ; do
+		run_stage $n
+	done
 }
 
 runner 2> error-log.log

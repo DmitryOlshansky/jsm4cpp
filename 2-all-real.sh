@@ -42,6 +42,7 @@ produce_krajca_csv(){
 }
 
 # iterate 2-D range of (extent-type x intent-type )
+# $2 - scale
 for_intents_extents(){
 	local cmd="$1"
 	shift 1
@@ -54,48 +55,49 @@ for_intents_extents(){
 	done
 	# linearize combinatorics - fix intent to the "standard" - bitset
 	for extent in $EXTENTS ; do
-		echo "$extent" "bitset" >&2
-		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			"$cmd" $extent bitset $@
-		done
+		if [ "$extent" != "bitset" ] ; then # already checked bitset bitset
+			echo "$extent" "bitset" >&2
+			for n in `seq 0 ${SAMPLES_LAST}` ; do
+				"$cmd" $extent bitset $@
+			done
+		fi
 	done
 }
 
-# $1 - extent, $2 - intent,
+# $1 - extent, $2 - intent, $3 - sample count
 process_real_sets(){
 	local extent=$1
 	local intent=$2
+	local n=$3
 	local file="data/%s.dat"
 	local hdr=$(echo -n "File," && 	echo "$ALGOS" | sed 's/ /,---,/g')
-	for n in $(seq 0 ${SAMPLES_LAST}) ; do
-		if [ "$FINAL" == "serial" ] ; then  # produce only first time
-			produce_krajca_csv "$CSVDIR/real-krajca-$n.csv" "$hdr" "$RANGE" 
-		fi
-		produce_csv_series "$CSVDIR/real-$intent-$extent-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" \
-			produce_line "$file" $extent $intent
-	done
+	if [ "$FINAL" == "serial" ] ; then  # produce only first time
+		produce_krajca_csv "$CSVDIR/real-krajca-$n.csv" "$hdr" "$RANGE" 
+	fi
+	produce_csv_series "$CSVDIR/real-$intent-$extent-$n.csv" "File,fcbo,---,pcbo,---" "$RANGE" \
+		produce_line "$file" $extent $intent
 	./merge-csv $CSVDIR/real-krajca-*.csv > final/${FINAL}-real-krajca.csv
-	./merge-csv $CSVDIR/real-$intent-$extent-*.csv > final/${FINAL}-real-$intent-$extent.csv	
+	./merge-csv $CSVDIR/real-$intent-$extent-*.csv > final/${FINAL}-real-$intent-$extent.csv
 }
 
 do_all(){
 	rm -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
-	for_intents_extents process_real_sets 
+	for_intents_extents_samples process_real_sets 
 }
 
 # entry point 
 echo "Using $THREADS threads for parallel execution." >&2
 
-ALGOS="$PARALLEL"
-FINAL="par"
-RANGE="$REALDATA"
-echo "Parallel versions." >&2
-do_all
-
 ALGOS="$SERIAL"
 FINAL="serial"
 RANGE="$REALDATA"
 echo "Serial versions." >&2
+do_all
+
+ALGOS="$PARALLEL"
+FINAL="par"
+RANGE="$REALDATA"
+echo "Parallel versions." >&2
 do_all

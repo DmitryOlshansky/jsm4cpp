@@ -30,23 +30,7 @@ for_range_and_sample(){
 	done
 }
 
-# iterate 3-D range of (extent-type x intent-type x sample count)
-for_intents_extents_samples(){
-	local cmd="$1"
-	shift 1
-	for intent in $INTENTS ; do
-		echo "bitset" "$intent" >&2
-		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			"$cmd" "bitset" $intent $n $@
-		done
-	done
-	for extent in $EXTENTS ; do
-		echo "$extent" "bitset" >&2
-		for n in `seq 0 ${SAMPLES_LAST}` ; do
-			"$cmd" $extent "bitset" $n $@
-		done
-	done
-}
+
 
 gen_attr(){
 	./datagen 2500 $1 0.05 > $DATADIR/a-$1-$2.dat
@@ -109,26 +93,27 @@ do_all(){
 	for_range_and_sample "$OBJRANGE" gen_objs
 	for_range_and_sample "$DENRANGE" gen_density
 
-	# object series
-	for_intents_extents_samples produce_object_csv_series 
-	# attribute series
-	for_intents_extents_samples produce_attribute_csv_series
-
-	# density series
-	for_intents_extents_samples produce_density_csv_series
+	if [ "$FINAL" == "serial" ] ; then
+		# scale across a couple of CPU cores
+		# object series
+		for_intents_extents_samples produce_object_csv_series scale_test
+		# attribute series
+		for_intents_extents_samples produce_attribute_csv_series scale_test
+		# density series
+		for_intents_extents_samples produce_density_csv_series scale_test
+	else # no scaling across cores - parallel tests use all of CPUs
+		# object series
+		for_intents_extents_samples produce_object_csv_series 
+		# attribute series
+		for_intents_extents_samples produce_attribute_csv_series
+		# density series
+		for_intents_extents_samples produce_density_csv_series
+	fi
 	
 	# rm -rf $CSVDIR # cleanup
 }
 # entry point 
 echo "Using $THREADS threads for parallel execution." >&2
-
-ALGOS="$PARALLEL"
-FINAL="par"
-OBJRANGE="10000 20000 30000 40000 50000 60000 70000 80000 90000"
-ATTRRANGE="50 100 150 200 250 300 400 500 600 700 800 900"
-DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10 0.11 0.12 0.13"
-echo "Parallel versions." >&2
-do_all
 
 ALGOS="$SERIAL"
 FINAL="serial"
@@ -136,4 +121,12 @@ OBJRANGE="5000 10000 20000 30000 40000 50000 60000"
 ATTRRANGE="50 100 150 200 250 300 400 500 600"
 DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10"
 echo "Serial versions." >&2
+do_all
+
+ALGOS="$PARALLEL"
+FINAL="par"
+OBJRANGE="10000 20000 30000 40000 50000 60000 70000 80000 90000"
+ATTRRANGE="50 100 150 200 250 300 400 500 600 700 800 900"
+DENRANGE="0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 0.09 0.10 0.11 0.12 0.13"
+echo "Parallel versions." >&2
 do_all
