@@ -19,7 +19,7 @@ produce_file(){
 	local output="$2"
 	local writer="$3"
 	local hdr=$(echo -n "Size," && echo "$ALGOS"  | sed 's/ /,---,/g')
-	local range="10 20 40 80 100 1000 2000 4000 8000 10000 20000 400000"
+	local range="10 20 40 80 100 1000 2000 4000 8000 16000 32000"
 	produce_csv_series "$output" "$hdr" "$range" produce_line "$writer" "$inp"
 }
 
@@ -31,10 +31,17 @@ mkdir -p out-io
 for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
 	name=`dataset_name $tripple`
 	make_random_datasets $SAMPLES $tripple "out-io"
-	apply_to_datasets $tripple out-io out-io-csv/io-sim-$name-%s.csv produce_file simple
-	apply_to_datasets $tripple out-io out-io-csv/io-tab-$name-%s.csv produce_file table
+	ALGOS="$SERIAL"
+	# use fork-based parallelism for serial versions
+	apply_to_datasets $tripple out-io out-io-csv/io-serial-sim-$name-%s.csv produce_file simple &
+	apply_to_datasets $tripple out-io out-io-csv/io-serial-tab-$name-%s.csv produce_file table &
+	wait
+	ALGOS="$PARALLEL"
+	apply_to_datasets $tripple out-io out-io-csv/io-par-sim-$name-%s.csv produce_file simple
+	apply_to_datasets $tripple out-io out-io-csv/io-par-tab-$name-%s.csv produce_file table
 	mkdir -p final
-	./merge-csv out-io-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
-	./merge-csv out-io-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
+	./merge-csv out-io-serial-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
+	./merge-csv out-io-serial-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
+	./merge-csv out-io-par-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
+	./merge-csv out-io-par-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
 done
-

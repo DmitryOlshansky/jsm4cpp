@@ -34,8 +34,7 @@ Authors: Dmitry Olshansky (c) 2015-
 
 using namespace std;
 
-int main(int argc, char* argv[])
-{
+int entry(int argc, char* argv[]){
 	ios_base::sync_with_stdio(false);
 	string arg;
 	unique_ptr<Algorithm> alg;
@@ -114,9 +113,16 @@ int main(int argc, char* argv[])
 		out_file.open(argv[1]);
 		alg->output(out_file);
 	}
-	measure([&]{ alg->run(); }, "Time", verbose > 0);
+	alg->run(); 
 	if (verbose > 1){
 		cerr << "Final IO buffer size " << alg->bufferSize() << endl;
 	}
 	return 0;
+}
+
+
+int main(int argc, char* argv[]){
+	int code = 1;
+	measure([&](){  code = entry(argc, argv); }, "Time", true); // always print run-time
+	return code;
 }
