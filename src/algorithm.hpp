@@ -64,6 +64,7 @@ private:
 	shared_ptr<mutex> output_mtx;
 	shared_ptr<IntWriter> writer;
 	//
+	bool sort_;
 	size_t verbose_;
 	size_t par_level_;
 	size_t threads_;
@@ -127,8 +128,8 @@ public:
 
 	Algorithm():rows(), attributes_(0), objects_(0), min_support_(0),
 		output_mtx(make_shared<mutex>()), 
-		buf(cout), diag_(&cerr), 
-		verbose_(false), threads_(0), par_level_(0){}
+		buf(cout), diag_(&cerr), sort_(false),
+		verbose_(0), threads_(0), par_level_(0){}
 
 	Algorithm(Algorithm&& algo):
 		rows(move(algo.rows)), 
@@ -148,6 +149,7 @@ public:
 		algo.min_support_ = min_support_;
 		algo.output(buf.output());
 		algo.diag_ = diag_;
+		algo.sort_ = sort_;
 		algo.verbose_ = verbose_;
 		algo.threads_ = threads_;
 		algo.par_level_ = par_level_;
@@ -161,6 +163,13 @@ public:
 
 	virtual ~Algorithm(){
 		printStats();
+	}
+
+	// Get/set sort option
+	bool sortAttrs()const{ return sort_; }
+	Algorithm& sortAttrs(bool s){ 
+		sort_ = s;
+		return *this;
 	}
 
 	// Get/set verbose level
@@ -275,9 +284,11 @@ public:
 		}
 
 		// attributeNums[0] --> least frequent attribute num
-		sort(attributesNums, attributesNums+attributes_, [&](size_t i, size_t j){
-			return supps[i] < supps[j];
-		});
+		if(sort_){
+			sort(attributesNums, attributesNums+attributes_, [&](size_t i, size_t j){
+				return supps[i] < supps[j];
+			});
+		}
 		
 		revMapping = new size_t[attributes_]; // from original to sorted (most frequent --> 0)
 		for (size_t i = 0; i < attributes_; i++){
@@ -397,8 +408,7 @@ struct SimpleState {
 	size_t j; // attribute #
 
 	void alloc(Algorithm& algo){}
-
-	void dispose(){}
+	SimpleState& dup(){ return *this; } //nothing to duplicate
 };
 
 // Extended state for algorithms with implied errors array
@@ -408,9 +418,10 @@ struct ExtendedState {
 	size_t j; // attribute #
 	CompIntSet* implied; // must be inited
 	size_t attributes;
-	ExtendedState():extent(), intent(), j(0), implied(nullptr), attributes(0){}
-	ExtendedState(ExtSet extent_, IntSet intent_, size_t attr, CompIntSet* implied, size_t total_attributes):
-		extent(move(extent_)), intent(move(intent_)), j(attr), implied(implied), attributes(total_attributes){}
+	bool owns;
+	ExtendedState():extent(), intent(), j(0), implied(nullptr), attributes(0), owns(false){}
+	ExtendedState(ExtSet extent_, IntSet intent_, size_t attr, CompIntSet* implied_, size_t total_attributes):
+		extent(move(extent_)), intent(move(intent_)), j(attr), implied(implied_), attributes(total_attributes), owns(false){}
 
 	ExtendedState(ExtendedState&& state):implied(nullptr)
 	{
@@ -427,10 +438,12 @@ struct ExtendedState {
 			for(size_t i=j; i<state.attributes; i++){ // no point in copying sets < j, recursion goes from j
 				implied[i] = state.implied[i];
 			}
+			owns = state.owns;
 			state.implied = nullptr;
 		}
 		else{
 			implied = state.implied;
+			owns = state.owns;
 			state.implied = nullptr;
 		}
 		return *this;
@@ -440,10 +453,20 @@ struct ExtendedState {
 	// (normally state just refrences one layer of common stack)
 	void alloc(Algorithm& algo){
 		implied = new CompIntSet[max((size_t)2, algo.attributes() + 1 - algo.parLevel())*algo.attributes()];
+		owns = true;
 	}
 
-	void dispose(){
-		delete[] implied;
+	// duplicate implied vector
+	ExtendedState& dup(){
+		auto new_implied = new CompIntSet[attributes];
+		copy(implied, implied+attributes, new_implied);
+		implied = new_implied;
+		owns = true;
+		return *this;
+	}
+
+	~ExtendedState(){
+		if(owns) delete[] implied; // if we allocted it delete implied vector
 	}
 };
 
@@ -464,7 +487,7 @@ protected:
 	template<class Algo>
 	void processQueueItem(Algo* _this, typename Algo::State& state){
 		if(rec_depth == _this->parLevel())
-			_this->schedule(move(state));
+			_this->schedule(move(state.dup())); // reallocte implied vector
 		else{
 			rec_depth++;
 			_this->run(state);
@@ -514,7 +537,7 @@ private:
 					while (extract(t, state)){
 						sub.run(state);
 					}
-					state.dispose();
+					//state.dispose();
 				});
 			}
 		}, "Starting threads", verbose() > 1);
@@ -598,7 +621,7 @@ private:
 		while (queue.pop(state)){
 			sub.run(state);
 		}
-		state.dispose();
+		//state.dispose();
 	}
 	void serial(){
 		GenericAlgo::algorithm();
@@ -654,7 +677,7 @@ private:
 		while (queue.pop(state)){
 				sub.run(state);
 		}
-		state.dispose();
+		//state.dispose();
 	}
 
 	void serial(){

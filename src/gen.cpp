@@ -45,7 +45,7 @@ int entry(int argc, char* argv[]){
 	size_t verbose = 1;
 	size_t min_support = 0;
 	size_t buf_size = 32; // no worries, going to adaptively resize anyway
-	bool sort = false;
+	bool sorted = false;
 	int i = 1;
 	for (; i < argc && argv[i][0] == '-'; i++){
 		switch (argv[i][1]){
@@ -63,7 +63,7 @@ int entry(int argc, char* argv[]){
 		case 's':
 			if(strcmp(argv[i], "-sort") != 0)
 				goto L_unrecognized;
-			sort = true;
+			sorted = true;
 			break;
 		case 'm':
 			// minimal support
@@ -97,7 +97,7 @@ int entry(int argc, char* argv[]){
 	}
 	alg->verbose(verbose).threads(num_threads)
 		.parLevel(par_level).minSupport(min_support)
-		.bufferSize(buf_size);
+		.bufferSize(buf_size).sortAttrs(sorted);
 	if (argc > 0){
 		in_file.open(argv[0]);
 		if (!alg->loadFIMI(in_file)){
