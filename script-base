@@ -3,14 +3,14 @@ NAMES="bcbo fcbo inclose2 inclose3"
 # parallel names
 PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
 FPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/fp-\0/g')
-TPNAMES="tp-bcbo tp-inclose2"
-#TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
+# TPNAMES="tp-bcbo tp-inclose2"
+TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
 # 
 ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
 SERIAL="cbo $NAMES"
 PARALLEL="$PNAMES $FPNAMES $TPNAMES"
 EXTENTS="bitset linear tree" # TODO: hashset
-INTENTS="bitset linear tree" # might not be the same as extents
+INTENTS="bitset linear" # might not be the same as extents
 WRITERS=(table simple)
 ALLOCS=(malloc shared-pool tls-pool)
 

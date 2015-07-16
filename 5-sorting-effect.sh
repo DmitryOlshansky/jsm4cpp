@@ -39,7 +39,7 @@ do_all(){
 	rm -rf "$CSVDIR"
 	mkdir -p final
 	mkdir -p "$CSVDIR"
-	for flag in "--sorted" " " ; do 
+	for flag in "-sort" " " ; do 
 		for s in $(seq 0 ${SAMPLES_LAST}) ; do
 			if [ "$FINAL" == "serial" ] ; then # ad-hoc parallelism
 				process_real_sets bitset bitset $s $flag &
