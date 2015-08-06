@@ -1,6 +1,5 @@
 #!/bin/bash
 source script-base
-SAMPLES=3 # in real datasets it's just number of runs over the same input
 let SAMPLES_LAST=$SAMPLES-1
 CSVDIR=out-threads-csv
 THREADS=`nproc`
@@ -14,7 +13,7 @@ produce_line(){
 	local alloc="$6"
 	local file="$2"
 	echo "***" "-t$param -L$L" >&2
-	run_to_csv "$extent" "$intent" table "$alloc" "$ALGOS" "-t$param -L$L" "$file"
+	run_to_csv "$extent" "$intent" table "$alloc" "$ALGOS" "-t$param -b100 -L$L" "$file"
 }
 
 # $1 - extent, $2 - intent, $3 - sample #, $4 - dataset, $5 - L, $6 - alloc

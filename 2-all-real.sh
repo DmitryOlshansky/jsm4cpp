@@ -1,6 +1,5 @@
 #!/bin/bash
 source script-base
-SAMPLES=3 # in real datasets it's just number of runs over the same input
 let SAMPLES_LAST=$SAMPLES-1
 CSVDIR=out-real-csv
 THREADS=`nproc`
@@ -12,7 +11,7 @@ produce_line(){
 	local intent="$4"
 	local file=`printf $2 $1`
 	# echo $file >&2
-	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -L1" "$file"
+	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -b100 -L1" "$file"
 }
 
 # <cmd> <args>

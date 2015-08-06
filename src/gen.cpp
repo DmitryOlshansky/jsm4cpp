@@ -36,10 +36,12 @@ using namespace std;
 
 int entry(int argc, char* argv[]){
 	ios_base::sync_with_stdio(false);
+	cout.rdbuf()->pubsetbuf(nullptr,0); // disable buffering on output, we buffer ourselves
 	string arg;
 	unique_ptr<Algorithm> alg;
 	ifstream in_file;
 	ofstream out_file;
+	out_file.rdbuf()->pubsetbuf(nullptr,0); // ditto for file stream
 	size_t num_threads = 1;
 	size_t par_level = 2;
 	size_t verbose = 1;

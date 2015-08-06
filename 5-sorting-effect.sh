@@ -1,6 +1,5 @@
 #!/bin/bash
 source script-base
-SAMPLES=3 # in real datasets it's just number of runs over the same input
 let SAMPLES_LAST=$SAMPLES-1
 CSVDIR=out-sorting-csv
 THREADS=`nproc`
@@ -13,7 +12,7 @@ produce_line(){
 	local flag="$5"
 	local file=`printf $2 $1`
 	echo "***" "$file $flag" >&2
-	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -L1" "$file"
+	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -b100 -L1" "$file"
 }
 
 # $1 - extent, $2 - intent, $3 - sample #, $4 - sort flag
