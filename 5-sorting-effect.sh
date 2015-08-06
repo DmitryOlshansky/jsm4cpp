@@ -11,7 +11,7 @@ produce_line(){
 	local flag="$5"
 	local file=`printf $2 $1`
 	echo "***" "$file $flag" >&2
-	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -b100 -L1" "$file"
+	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS $flag -b100 -L1" "$file"
 }
 
 # $1 - extent, $2 - intent, $3 - sample #, $4 - sort flag
@@ -23,14 +23,14 @@ process_real_sets(){
 	local file="data/%s.dat"
 	local hdr=$(echo -n "L," && echo "$ALGOS" | sed 's/ /,---,/g')
 	echo "$extent" "$intent"  >&2
-	if [ "$flag" == "-sort" ]; then
+	if [ "$sorted" == "-sort" ]; then
 		value="yes"
 	else
 		value="no"
 	fi
-	produce_csv_series "$CSVDIR/sorting-$value-$intent-$extent-$n.csv" "$hdr" "$RANGE" \
+	produce_csv_series "$CSVDIR/sorting-$value-$extent-$intent-$n.csv" "$hdr" "$RANGE" \
 		produce_line "$file" $extent $intent $sorted
-	./merge-csv $CSVDIR/sorting-$value-$intent-$extent-*.csv > final/$FINAL-sorting-$value-$intent-$extent.csv
+	./merge-csv $CSVDIR/sorting-$value-$extent-$intent-*.csv > final/$FINAL-sorting-$value-$extent-$intent.csv
 }
 
 do_all(){
