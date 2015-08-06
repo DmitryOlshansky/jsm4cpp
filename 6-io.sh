@@ -28,7 +28,7 @@ mkdir -p out-io
 for tripple in "10000 200 0.05" ; do
 	name=`dataset_name $tripple`
 	make_random_datasets $SAMPLES $tripple "out-io"
-	if true ; then 
+	if $RUNSERIAL ; then 
 		ALGOS="$SERIAL"
 		# use fork-based parallelism for serial versions
 		echo "Running serial part."
@@ -36,7 +36,7 @@ for tripple in "10000 200 0.05" ; do
 		apply_to_datasets $tripple out-io out-io-csv/io-serial-tab-$name-%s.csv produce_file table &
 		wait
 	fi
-	if true ; then 
+	if $RUNPARALLEL ; then 
 		ALGOS="$PARALLEL"
 		echo "Running parallel part."
 		apply_to_datasets $tripple out-io out-io-csv/io-par-sim-$name-%s.csv produce_file simple

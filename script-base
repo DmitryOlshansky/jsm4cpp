@@ -1,4 +1,18 @@
 #!/bin/bash
+# check env:
+if [ "x$ONLYSERIAL" != "x" ] ; then
+	echo "Running only serial parts." 
+	RUNSERIAL=true
+	RUNPARALLEL=false
+elif [ "x$ONLYPARALLEL" != "x" ] ; then
+	echo "Running only parallel parts."
+	RUNSERIAL=false
+	RUNPARALLEL=true
+else
+	RUNSERIAL=true
+	RUNPARALLEL=true
+fi
+
 NAMES="bcbo fcbo inclose2 inclose3"
 # parallel names
 PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
