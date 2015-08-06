@@ -2,7 +2,6 @@
 source script-base
 let SAMPLES_LAST=$SAMPLES-1
 CSVDIR=out-L-csv
-THREADS=`nproc`
 
 # $1 - param value,  $2 - file format string, $3 - extent, $4 -intent,
 produce_line(){
@@ -44,7 +43,7 @@ do_all(){
 echo "Using $THREADS threads for parallel execution." >&2
 
 ALGOS="$PARALLEL"
-RANGE="0 1 2 3 4 5 6" # values of L
+RANGE="0 1 2 3 4 5" # values of L
 DATA="$REALDATA"
-echo "Parallel versions." >&2
+echo "Parallel part." >&2
 do_all

@@ -18,7 +18,7 @@ else
 fi
 
 if [ "x$2" == "x" ];  then
-	END=6
+	END=7
 else
 	END=$2
 fi

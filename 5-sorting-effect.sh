@@ -2,7 +2,6 @@
 source script-base
 let SAMPLES_LAST=$SAMPLES-1
 CSVDIR=out-sorting-csv
-THREADS=`nproc`
 
 # $1 - param value,  $2 - file format string, $3 - extent, $4 -intent, $5 - sorting flag
 produce_line(){

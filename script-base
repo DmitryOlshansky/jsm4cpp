@@ -11,12 +11,14 @@ SERIAL="cbo $NAMES"
 PARALLEL="$PNAMES $FPNAMES $TPNAMES"
 EXTENTS="bitset linear tree" # TODO: hashset
 INTENTS="bitset linear" # might not be the same as extents
-WRITERS=(table simple)
-ALLOCS=(malloc shared-pool tls-pool)
+ALLOCS="malloc shared-pool tls-pool"
 
 REALDATA="mushroom adult"
 # number of random samples per synthetic data set or runs for real ones
 SAMPLES=3
+let SAMPLES_LAST=$SAMPLES-1
+# 
+THREADS=`nproc`
 # gen-extent-intent-writer-alloc
 #      $1      $2     $3    $4
 binary_suffix(){

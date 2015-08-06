@@ -1,6 +1,5 @@
 #!/bin/bash
 source script-base
-THREADS=`nproc`
 
 # $1 - buf_size, $2 writer,  $3 - dataset file
 produce_line(){
