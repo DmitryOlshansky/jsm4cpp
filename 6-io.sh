@@ -1,6 +1,5 @@
 #!/bin/bash
 source script-base
-ALGOS="$ALL"
 SAMPLES=3 # number of random samples per synthetic data set 
 THREADS=`nproc`
 
@@ -28,20 +27,22 @@ echo "Using $THREADS threads for parallel execution." >&2
 rm -rf "$CSVDIR"
 mkdir -p final
 mkdir -p out-io
-for tripple in "5000 100 0.05" "5000 150 0.05" "10000 50 0.05" ; do
+for tripple in "10000 200 0.05" ; do
 	name=`dataset_name $tripple`
 	make_random_datasets $SAMPLES $tripple "out-io"
 	ALGOS="$SERIAL"
 	# use fork-based parallelism for serial versions
+	echo "Running serial part."
 	apply_to_datasets $tripple out-io out-io-csv/io-serial-sim-$name-%s.csv produce_file simple &
 	apply_to_datasets $tripple out-io out-io-csv/io-serial-tab-$name-%s.csv produce_file table &
 	wait
+	echo "Running parallel part."
 	ALGOS="$PARALLEL"
 	apply_to_datasets $tripple out-io out-io-csv/io-par-sim-$name-%s.csv produce_file simple
 	apply_to_datasets $tripple out-io out-io-csv/io-par-tab-$name-%s.csv produce_file table
 	mkdir -p final
-	./merge-csv out-io-serial-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
-	./merge-csv out-io-serial-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
-	./merge-csv out-io-par-csv/io-sim-$name-*.csv > final/io-sim-$name.csv
-	./merge-csv out-io-par-csv/io-tab-$name-*.csv > final/io-tab-$name.csv
+	./merge-csv out-io-csv/io-par-sim-$name-*.csv > final/io-sim-par-$name.csv
+	./merge-csv out-io-csv/io-par-tab-$name-*.csv > final/io-tab-par-$name.csv
+	./merge-csv out-io-csv/io-serial-sim-$name-*.csv > final/io-sim-serial-$name.csv
+	./merge-csv out-io-csv/io-serial-tab-$name-*.csv > final/io-tab-serial-$name.csv
 done
