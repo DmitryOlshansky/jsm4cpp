@@ -6,7 +6,7 @@ ALGOS="$SERIAL $TPNAMES"
 produce_line(){
 	local alloc="$1"
 	local file="$2"
-	run_to_csv bitset bitset table $alloc "$ALGOS" -sort -b$buf "$file"
+	run_to_csv bitset bitset table $alloc "$ALGOS" "-sort -b$buf" "$file"
 }
 
 # <input> <output> 
@@ -22,7 +22,10 @@ rm -rf out-mem-csv
 mkdir -p out-mem-csv
 mkdir -p final
 for name in $REALDATA ; do
+	echo -n $name
 	for n in `seq 0 ${SAMPLES_LAST}` ; do
+		echo -n .
 		produce_file data/$name.dat out-mem-csv/mem-$name-$n.csv
 	done
+	echo
 done

@@ -7,7 +7,7 @@ produce_line(){
 	local wrt="$2"
 	local file="$3"
 	# "" - no extra flags
-	run_to_csv bitset bitset $wrt malloc "$ALGOS" -L1 -b$buf "-t$THREADS" "$file"
+	run_to_csv bitset bitset $wrt malloc "$ALGOS" "-L1 -b$buf -t$THREADS" "$file"
 }
 
 # <input> <output> <writer>
