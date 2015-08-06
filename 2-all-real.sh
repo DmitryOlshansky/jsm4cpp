@@ -10,7 +10,7 @@ produce_line(){
 	local intent="$4"
 	local file=`printf $2 $1`
 	# echo $file >&2
-	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -b100 -L1" "$file"
+	run_to_csv "$extent" "$intent" table malloc "$ALGOS" "-t$THREADS -sort -b100 -L1" "$file"
 }
 
 # <cmd> <args>

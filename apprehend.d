@@ -1,7 +1,7 @@
-import std.algorithm, core.bitop, std.conv, std.exception, std.math, std.random,
+import std.algorithm, core.bitop, std.conv, std.exception, std.getopt, std.math, std.random,
 	std.range, std.string, std.stdio, std.traits;
 
-immutable double stochasticError = 1e-3;
+double stochasticError = 1e-3;
 immutable maxK = 100; // first Uk-s to compute
 
 void process(File inp, string filename){
@@ -42,7 +42,8 @@ void process(File inp, string filename){
 	for(size_t k=1; k<min(maxK, density.length); k++){
 		auto maxMu = geometricMean(density[0..k]);
 		auto minMu = geometricMean(density[$-k..$]);
-		// stochastic geometric mean of k sets, with accepted varience of < 1e-7
+		stochasticError = 1e-2 / 10.0^^(k^^-2.0); // be more accurate with bigger k
+		// stochastic geometric mean of k sets, with accepted varience of < stochasticError
 		auto stMu = stochasticMean(density, k, stochasticError);
 		writefln("%s\t%g\t%g\t%g\t%g\t%g\t%g", k, maxMu, stMu, minMu, pow(maxMu, k), pow(stMu, k), pow(minMu, k));
 	}
@@ -77,6 +78,13 @@ double stochasticMean(Range)(Range args, size_t k, double varience) if(isFloatin
 }
 
 void main(string[] args){
+	bool zeros=false;
+	auto info = getopt(args, 
+		'z',  "count density of 0s instead of 1s", &zeros
+	);
+	if(info.helpWanted) {
+    	return defaultGetoptPrinter("Some information about the program.", info.options);
+  	}
 	if(args.length == 1)
 		return process(stdin, "-");
 	foreach(arg; args[1..$])

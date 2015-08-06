@@ -1,12 +1,12 @@
 #!/bin/bash
 source script-base
-ALGOS="$ALL"
+ALGOS="$SERIAL $TPNAMES"
 
 # $1 alloc,  $2 - dataset file
 produce_line(){
 	local alloc="$1"
 	local file="$2"
-	run_to_csv bitset bitset table $alloc "$ALGOS" -b$buf "$file"
+	run_to_csv bitset bitset table $alloc "$ALGOS" -sort -b$buf "$file"
 }
 
 # <input> <output> 
