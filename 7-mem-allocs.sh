@@ -6,7 +6,7 @@ ALGOS="$SERIAL $TPNAMES"
 produce_line(){
 	local alloc="$1"
 	local file="$2"
-	run_to_csv bitset bitset table $alloc "$ALGOS" "-sort -b$buf" "$file"
+	run_to_csv bitset bitset table $alloc "$ALGOS" "-sort -t$THREADS -L1 -b$buf" "$file"
 }
 
 # <input> <output> 
@@ -28,4 +28,5 @@ for name in $REALDATA ; do
 		produce_file data/$name.dat out-mem-csv/mem-$name-$n.csv
 	done
 	echo
+	./merge-csv out-mem-csv/mem-$name-*.csv >final/mem-$name.csv
 done
