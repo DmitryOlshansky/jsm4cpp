@@ -36,8 +36,8 @@ do_all(){
 	mkdir -p final
 	mkdir -p "$CSVDIR"
 	for dataset in $DATA ; do 
-	for L in 1 ; do # just use 1 for L
-	for alloc in malloc shared-pool tls-pool ; do
+	for L in 1 ; do # just use 1 for L it's optimal for mushroom and near optimal for adult
+	for alloc in tls-pool ; do # just use TLS-pool it's consistently better then malloc and shared-pool
 	for s in $(seq 0 ${SAMPLES_LAST}) ; do
 			process_real_sets bitset bitset $s $dataset $L $alloc
 			process_real_sets linear bitset $s $dataset $L $alloc
