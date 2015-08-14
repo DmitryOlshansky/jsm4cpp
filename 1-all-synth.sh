@@ -63,9 +63,9 @@ produce_attribute_csv_series(){
 	local file="$DATADIR/a-%s-$n.dat"
 	local hdr=$(echo -n "#Attrs," && 	echo "$ALGOS" | sed 's/ /,---,/g')
 	# echo "$hdr" >&2
-	produce_csv_series "$CSVDIR/attrs-$intent-$extent-$n.csv" "$hdr" "$ATTRRANGE" \
+	produce_csv_series "$CSVDIR/attrs-$extent-$intent-$n.csv" "$hdr" "$ATTRRANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/attrs-$intent-$extent-*.csv > final/${FINAL}-synth-attrs-$intent-$extent.csv
+	./merge-csv $CSVDIR/attrs-$extent-$intent-*.csv > final/${FINAL}-synth-attrs-$extent-$intent.csv
 }
 
 # $1 - extent, $2 - intent, $3 - sample
@@ -76,9 +76,9 @@ produce_density_csv_series(){
 	local file="$DATADIR/d-%s-$n.dat"
 	local hdr=$(echo -n "#Density," && 	echo "$ALGOS" | sed 's/ /,---,/g')
 	# echo "$hdr" >&2
-	produce_csv_series "$CSVDIR/density-$intent-$extent-$n.csv" "$hdr" "$DENRANGE" \
+	produce_csv_series "$CSVDIR/density-$extent-$intent-$n.csv" "$hdr" "$DENRANGE" \
 		produce_line "$file" $extent $intent
-	./merge-csv $CSVDIR/density-$intent-$extent-*.csv > final/${FINAL}-synth-density-$intent-$extent.csv
+	./merge-csv $CSVDIR/density-$extent-$intent-*.csv > final/${FINAL}-synth-density-$extent-$intent.csv
 }
 
 do_all(){

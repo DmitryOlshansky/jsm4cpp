@@ -111,6 +111,9 @@ int entry(int argc, char* argv[]){
 		cerr << "Failed to load any data.\n";
 		return 1;
 	}
+	if( verbose > 1){
+		cerr << "Total attributes: " << alg->attributes() << endl;
+	}
 	if (argc > 1){
 		out_file.open(argv[1]);
 		alg->output(out_file);

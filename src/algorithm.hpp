@@ -282,7 +282,13 @@ public:
 				supps[val]++;
 			}
 		}
-
+		if(verbose() > 1){
+			size_t ones = 0;
+			for(size_t i=0; i<attributes_; i++)
+				ones += supps[i];
+			auto density = ones / (double)(attributes_*objects_);
+			cerr << "Density of ones: " << density << endl;
+		}
 		// attributeNums[0] --> least frequent attribute num
 		if(sort_){
 			sort(attributesNums, attributesNums+attributes_, [&](size_t i, size_t j){
