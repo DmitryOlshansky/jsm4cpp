@@ -1,5 +1,5 @@
 env = Environment()
-
+prefix = '/usr/local'
 AddOption('--alloc', dest='alloc', type='string', help='kind of allocator to use for sets')
 AddOption('--extent', dest='extent', type='string', help='type of set to use for extents')
 AddOption('--intent', dest='intent', type='string', help='type of set to use for intents')
@@ -64,4 +64,4 @@ elif 'g++' in env['CXX'] or 'clang++' in env['CXX']:
 		env.Append(CCFLAGS="-g -std=c++11 -pthread"+flags)
 	env.Append(LIBS=["pthread"]+libs, LINKFLAGS="-Wl,--no-as-needed")
 
-SConscript(dirs='.', variant_dir="build/stage"+var_name, duplicate=False, exports=["env", "suffix"])
+SConscript(dirs='.', variant_dir="build/stage"+var_name, duplicate=False, exports=["env", "suffix", "prefix"])
