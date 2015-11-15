@@ -41,16 +41,19 @@ void usage(){
 	exit(1);
 }
 
+//
 bool oppositeProps(Algorithm& alg, IntSet& set, IntSet& minus, size_t attributes, size_t props)
 {
-	for(size_t j=attributes; j<attributes+props; j++){
+	// properties go in pairs - has/has_not
+	for(size_t j=attributes; j<attributes+props; j+=2){
 		size_t p = alg.mapAttribute(j);
-		if(minus.has(p) == set.has(p)){
+		size_t p2 = alg.mapAttribute(j+1);
+		if(minus.has(p) != set.has(p2) && minus.has(p2) != set.has(p)){
 			// at least one is not opposite
-			return true; 
+			return false; 
 		}
 	}
-	return false; // all opposite 
+	return true; // all opposite
 }
 
 int main(int argc, char* argv[])
@@ -172,31 +175,44 @@ int main(int argc, char* argv[])
 		alg->output(hyp_stream);
 		if(direct){ // check that hypothesis are not equal some opposing example
 			alg->filter([&](IntSet& set){
+				// below is strategy w/o counter examples?
+				//cerr << "=========" << endl;
 				for(size_t i=0; i<minus_size; i++){
-					if(set.equal(minus[i], attributes)){
-						// check that all properties are opposite
-						if(oppositeProps(*alg, set, minus[i], attributes, props)){
+					//cerr << "Cmp: " << endl;
+					//printSet(set, cerr);
+					//cerr << " vs ";
+					//printSet(minus[i], cerr);
+					bool match = set.subsetOf(minus[i], attributes);
+					//cerr << " = " << match;
+					//cerr << endl;
+					// props are equal, and minus is opposite
+					if(match && oppositeProps(*alg, set, minus[i], attributes, props)){
+							cerr << "Filtered!"<<endl;
 							return false;
-						}
 					}
 				}
 				return true; // keep
 			});
 		}
 		else{
-			IntSet tmp = IntSet::newFull();
+			// below is strategy w/o counter examples?
 			alg->filter([&](IntSet& set){
+				//cerr << "=========" << endl;
 				for(size_t i=0; i<minus_size; i++){
-					tmp.copy(set);
-					tmp.intersect(minus[i], attributes);
-					// can fit hypothesis to opposite example
-					if(tmp.equal(minus[i], attributes)){
-						if(oppositeProps(*alg, set, minus[i], attributes, props)){
+					//cerr << "Cmp: " << endl;
+					//printSet(set, cerr);
+					//cerr << " vs ";
+					//printSet(minus[i], cerr);
+					bool match = set.subsetOf(minus[i], attributes);
+					//cerr << " = " << match;
+					//cerr << endl;
+					// props are equal, and minus is opposite
+					if(match && oppositeProps(*alg, set, minus[i], attributes, props)){
+							cerr << "Filtered!"<<endl;
 							return false;
-						}
 					}
 				}
-				return true;
+				return true; // keep
 			});
 		}
 		auto beg = chrono::high_resolution_clock::now();
