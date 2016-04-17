@@ -114,3 +114,5 @@ using ParCbO = ForkJoin<GenericBCbO, CbO>;
 using FParCbO = FairForkJoin<GenericBCbO, CbO>;
 
 using TPCbO = WithThreadPool<GenericBCbO, BCbO>;
+
+using WFCbO = WaveFrontParallel<GenericBCbO>;

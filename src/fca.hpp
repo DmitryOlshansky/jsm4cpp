@@ -43,7 +43,12 @@ inline unique_ptr<Algorithm> fromName(const string& name){
 		{ "tp-bcbo", &make<TPCbO> },
 		{ "tp-fcbo", &make<TPFCbO> },
 		{ "tp-inclose2", &make<TPInClose2> },
-		{ "tp-inclose3", &make<TPInClose3> }
+		{ "tp-inclose3", &make<TPInClose3> },
+	// wave-front parallel
+		{ "wf-bcbo", &make<WFCbO> },
+		{ "wf-fcbo", &make<WFFCbO> },
+		{ "wf-inclose2", &make<WFInClose2> },
+		{ "wf-inclose3", &make<WFInClose3> }
 	};
 	for(auto& e : table){
 		if(name == e.name)

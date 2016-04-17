@@ -71,6 +71,8 @@ public:
 	}
 };
 
+
+
 using InClose3 = RecursiveCalls<GenericInClose3>;
 
 using ParInClose3 = ForkJoin<GenericInClose3, InClose3>;
@@ -78,3 +80,5 @@ using ParInClose3 = ForkJoin<GenericInClose3, InClose3>;
 using FParInClose3 = FairForkJoin<GenericInClose3, InClose3>;
 
 using TPInClose3 = WithThreadPool<GenericInClose3, InClose3>;
+
+using WFInClose3 = WaveFrontParallel<GenericInClose3>;

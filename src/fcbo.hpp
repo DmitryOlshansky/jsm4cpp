@@ -74,3 +74,5 @@ using ParFCbO = ForkJoin<GenericFCbO, FCbO>;
 using FParFCbO = FairForkJoin<GenericFCbO, FCbO>;
 
 using TPFCbO = WithThreadPool<GenericFCbO, FCbO>;
+
+using WFFCbO = WaveFrontParallel<GenericFCbO>;

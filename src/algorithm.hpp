@@ -117,7 +117,7 @@ protected:
 	virtual void algorithm()=0;
 
 	// print intent and/or extent
-	void output(ExtSet& A, IntSet& B){
+	virtual void output(ExtSet& A, IntSet& B){
 		if(verbose() >= 1){
 			if(!filter_ || filter_(B))
 				printAttributes(B);
@@ -699,4 +699,66 @@ public:
 		queue.push(move(state));
 	}
 
+};
+
+template<class GenericAlgo>
+class WaveFrontSingle : public GenericAlgo {
+	using State = typename GenericAlgo::State;
+	size_t rank_, waveSize_;
+	size_t counter_, rec_depth_;
+	void processQueueItem(State&& s){
+		if(rec_depth_  == this->parLevel())
+		{
+			if(counter_ == rank_)
+			{
+				rec_depth_++;
+				GenericAlgo::run(s);
+				rec_depth_--;
+			}
+			counter_++;
+			if(counter_ == waveSize_)
+				counter_ = 0;
+		}
+		else
+		{
+			rec_depth_++;
+			GenericAlgo::run(s);
+			rec_depth_--;
+		}
+	}
+protected:
+	void output(ExtSet& A, IntSet& B){
+		if(rank_ == 0 || rec_depth_ >= this->parLevel())
+			Algorithm::output(A, B);
+	}
+public:
+	void output(ostream& os){ Algorithm::output(os); }
+	void run(){ Algorithm::run(); }
+	WaveFrontSingle():
+		Algorithm(),rank_(0),waveSize_(0), counter_(0),rec_depth_(0){}
+	//
+	WaveFrontSingle& rank(size_t r){ rank_  = r; return *this; }
+	//
+	WaveFrontSingle& waveSize(size_t ws){ waveSize_  = ws; return *this; }
+};
+
+template<class GenericAlgo>
+class WaveFrontParallel : public Algorithm {
+	void algorithm(){
+		vector<thread> thrds;
+		size_t total = threads();
+		auto this_ = this;
+		for(size_t i =0; i<total; i++){
+			thrds.emplace_back([i, total, this_]{
+				auto algo = this_->fork<WaveFrontSingle<GenericAlgo>>();
+				algo.rank(i);
+				algo.waveSize(total);
+				algo.run();
+			});
+		}
+		for(auto& t : thrds)
+			t.join();
+	}
+public:
+	using Algorithm::Algorithm;
 };

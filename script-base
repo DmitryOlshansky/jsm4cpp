@@ -19,10 +19,11 @@ PNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/p-\0/g')
 FPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/fp-\0/g')
 # TPNAMES="tp-bcbo tp-inclose2"
 TPNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/tp-\0/g')
+WFNAMES=$(echo $NAMES | sed -r 's/[a-z0-9]+/wf-\0/g')
 # 
-ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES"
+ALL="cbo $NAMES $PNAMES $FPNAMES $TPNAMES $WFNAMES"
 SERIAL="cbo $NAMES"
-PARALLEL="$PNAMES $FPNAMES $TPNAMES"
+PARALLEL="$PNAMES $FPNAMES $TPNAMES $WFNAMES"
 EXTENTS="bitset linear tree" # TODO: hashset
 INTENTS="bitset linear" # might not be the same as extents
 ALLOCS="malloc shared-pool tls-pool"
