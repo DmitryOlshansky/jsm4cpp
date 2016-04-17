@@ -51,13 +51,15 @@ if  alloc == 'tls-pool' or alloc == 'shared-pool':
 cxx = GetOption('cxx')
 if cxx: # C++ compiler override
 	env['CXX'] = cxx
+	if 'mpi' in cxx:
+		env.Append(CCFLAGS="-DUSE_MPI", LIBS=["boost_mpi"])
 release = GetOption('release')
 suffix = GetOption('suffix')
 suffix = var_name if suffix == None else "-%s" % suffix
 
 if env['CXX'] == 'cl':
     env.Append(CCFLAGS="/EHsc "+flags)
-elif 'g++' in env['CXX'] or 'clang++' in env['CXX']:
+elif 'c++' in env['CXX'] or 'g++' in env['CXX'] or 'clang++' in env['CXX']:
 	if release:
 		env.Append(CCFLAGS="-Ofast -DNDEBUG -std=c++11 -pthread"+flags)
 	else:

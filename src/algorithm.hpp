@@ -762,3 +762,4 @@ class WaveFrontParallel : public Algorithm {
 public:
 	using Algorithm::Algorithm;
 };
+

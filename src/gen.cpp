@@ -30,7 +30,11 @@ Authors: Dmitry Olshansky (c) 2015-
 #include <mutex>
 #include <chrono>
 
+#ifdef USE_MPI
+#include "fca_mpi.hpp"
+#else
 #include "fca.hpp"
+#endif
 
 using namespace std;
 
